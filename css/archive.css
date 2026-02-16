@@ -605,6 +605,21 @@ body {
   color: var(--text-dim);
 }
 
+.footer-feedback {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.footer-feedback a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.footer-feedback a:hover {
+  text-decoration: underline;
+}
+
 /* ---- Toast ---- */
 .toast {
   position: fixed;
