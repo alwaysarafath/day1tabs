@@ -21,6 +21,14 @@ function renderStatus(status) {
 
   countEl.className = 'tab-count ' + colorClass;
 
+  // Subtitle: "tabs open" or "tabs across X windows"
+  const label = document.getElementById('tabLabel');
+  if (status.windowCount > 1) {
+    label.textContent = `tabs across ${status.windowCount} windows`;
+  } else {
+    label.textContent = 'tabs open';
+  }
+
   // Count bar
   const bar = document.getElementById('countBar');
   bar.className = 'count-bar ' + colorClass;

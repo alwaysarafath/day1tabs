@@ -541,6 +541,7 @@ async function handleMessage(message) {
       const data = await chrome.storage.local.get(['resetHour', 'resetMinute', 'resetEnabled', 'undoData', 'sacredDomains', 'archive']);
       const tabs = await chrome.tabs.query({});
       const tabCount = tabs.length;
+      const windowCount = new Set(tabs.map(t => t.windowId)).size;
 
       // Count tabs that would actually be closed in a reset
       const sacredDomains = data.sacredDomains || [];
@@ -575,6 +576,7 @@ async function handleMessage(message) {
 
       return {
         tabCount,
+        windowCount,
         resettableCount,
         resetEnabled: data.resetEnabled !== false,
         nextReset: nextReset.toISOString(),
