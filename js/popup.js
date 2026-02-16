@@ -81,7 +81,7 @@ function renderStatus(status) {
     undoBanner.style.display = 'block';
     const undoText = document.getElementById('undoText');
     const remaining = status.undoRemainingCount ?? status.undoTabCount;
-    undoText.textContent = `${remaining} tabs reset · ${status.undoExpiresIn}m left`;
+    undoText.textContent = `${remaining} tabs closed · ${status.undoExpiresIn}m left`;
 
     // Timer bar
     const timerPct = (status.undoExpiresIn / 30) * 100;

@@ -41,6 +41,7 @@ async function init() {
   setupQuickActions();
   setupUndoButton(status);
   setupCollapsibleGroups();
+  startNextCloseCountdown(status);
 }
 
 function renderStats(stats) {
@@ -397,6 +398,38 @@ function showToast(message) {
   document.body.appendChild(toast);
 
   setTimeout(() => toast.remove(), 2500);
+}
+
+function startNextCloseCountdown(status) {
+  const el = document.getElementById('nextCloseText');
+  const container = document.getElementById('nextClose');
+
+  if (!status.resetEnabled) {
+    el.textContent = 'Auto-close is paused';
+    container.classList.add('disabled');
+    return;
+  }
+
+  function update() {
+    const now = new Date();
+    const next = new Date(status.nextReset);
+
+    // If next reset is in the past, add 24h
+    if (next <= now) next.setDate(next.getDate() + 1);
+
+    const diff = next - now;
+    const hours = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+
+    if (hours > 0) {
+      el.textContent = `Next auto-close in ${hours}h ${mins}m`;
+    } else {
+      el.textContent = `Next auto-close in ${mins}m`;
+    }
+  }
+
+  update();
+  setInterval(update, 60000);
 }
 
 function sendMessage(msg) {

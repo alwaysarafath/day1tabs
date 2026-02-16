@@ -117,13 +117,19 @@ body {
   line-height: 1.5;
 }
 
-/* ---- Last Reset Info ---- */
+/* ---- Reset Row ---- */
+.reset-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
 .reset-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
-  padding: 0 4px;
 }
 
 .reset-info-label {
@@ -137,6 +143,26 @@ body {
   font-size: 13px;
   color: var(--text-muted);
   font-weight: 500;
+}
+
+.next-close {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.next-close-icon {
+  font-size: 12px;
+}
+
+.next-close-text {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.next-close.disabled .next-close-text {
+  color: var(--text-dim);
 }
 
 /* ---- Dashboard Row ---- */

@@ -16,7 +16,7 @@
       </div>
       <div class="header-actions">
         <button class="header-btn" id="undoAllBtn" style="display: none;">
-          <span>↩ Undo Reset</span>
+          <span>↩ Undo Close</span>
           <span class="undo-countdown" id="undoCountdown"></span>
         </button>
       </div>
@@ -31,10 +31,16 @@
 
     <!-- Archive Content -->
     <div id="archiveContent" style="display: none;">
-      <!-- Last Reset Info -->
-      <div class="reset-info" id="resetInfo">
-        <span class="reset-info-label">Last Reset</span>
-        <span class="reset-info-time" id="resetTime"></span>
+      <!-- Last Reset + Next Close row -->
+      <div class="reset-row">
+        <div class="reset-info" id="resetInfo">
+          <span class="reset-info-label">Last Reset</span>
+          <span class="reset-info-time" id="resetTime"></span>
+        </div>
+        <div class="next-close" id="nextClose">
+          <span class="next-close-icon">⏳</span>
+          <span class="next-close-text" id="nextCloseText">Next auto-close in —</span>
+        </div>
       </div>
 
       <!-- Dashboard Row: Stats + RAM side by side -->
@@ -43,7 +49,7 @@
         <div class="dashboard-stats">
           <div class="stat-hero">
             <span class="stat-number" id="statTotal">0</span>
-            <span class="stat-label">tabs reset</span>
+            <span class="stat-label">tabs closed</span>
           </div>
           <div class="stat-hero" id="statReopenedWrap" style="display: none;">
             <span class="stat-number stat-reopened" id="statReopened">0</span>
