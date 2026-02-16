@@ -38,7 +38,7 @@ body {
 }
 
 .container {
-  max-width: 720px;
+  max-width: 640px;
   margin: 0 auto;
   padding: 40px 24px;
 }
@@ -139,104 +139,148 @@ body {
   font-weight: 500;
 }
 
-/* ---- Stats Bar ---- */
-.stats-bar {
+/* ---- Dashboard Row ---- */
+.dashboard-row {
   display: flex;
-  gap: 24px;
-  padding: 16px 24px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 8px;
-  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
-.stats-bar.stats-breakdown {
-  padding: 12px 24px;
-  margin-bottom: 24px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+.dashboard-stats {
+  flex: 1;
+  display: flex;
+  gap: 12px;
 }
 
-.stat {
+.stat-hero {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
+  justify-content: center;
+  padding: 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
-.stat-primary .stat-number {
-  font-size: 32px;
-}
-
-.stat-number {
-  font-size: 22px;
+.stat-hero .stat-number {
+  font-size: 36px;
   font-weight: 700;
-  letter-spacing: -1px;
+  letter-spacing: -1.5px;
+  line-height: 1;
 }
 
-.stat-label {
+.stat-hero .stat-label {
   font-size: 11px;
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .stat-workhorse { color: var(--workhorse); }
 .stat-glanced { color: var(--glanced); }
 .stat-ghost { color: var(--ghost); }
 
+/* ---- Breakdown Chips ---- */
+.breakdown-chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.chip {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.chip.workhorse .chip-dot { background: var(--workhorse); }
+.chip.glanced .chip-dot { background: var(--glanced); }
+.chip.ghost .chip-dot { background: var(--ghost); }
+
+.chip-count {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.chip.workhorse .chip-count { color: var(--workhorse); }
+.chip.glanced .chip-count { color: var(--glanced); }
+.chip.ghost .chip-count { color: var(--ghost); }
+
+.chip-label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
 /* ---- RAM Savings ---- */
 .ram-savings {
+  min-width: 150px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 20px;
-  margin-bottom: 24px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .ram-header {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 5px;
+  margin-bottom: 2px;
 }
 
 .ram-icon {
-  font-size: 16px;
+  font-size: 12px;
 }
 
 .ram-total {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--workhorse);
   letter-spacing: -0.5px;
 }
 
-.ram-label {
-  font-size: 13px;
+.ram-suffix {
+  font-size: 11px;
   color: var(--text-muted);
+  font-weight: 400;
 }
 
 .ram-breakdown {
   display: flex;
-  gap: 16px;
-  margin-bottom: 8px;
+  flex-direction: column;
+  gap: 3px;
+  margin: 6px 0;
 }
 
 .ram-category {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-muted);
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-dim);
 }
 
 .ram-category .ram-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -247,13 +291,14 @@ body {
 
 .ram-category .ram-value {
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-muted);
 }
 
 .ram-disclaimer {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-dim);
   font-style: italic;
+  margin-top: 4px;
 }
 
 /* ---- Quick Actions ---- */
@@ -643,8 +688,9 @@ body {
 }
 
 /* ---- Responsive ---- */
-@media (max-width: 480px) {
+@media (max-width: 520px) {
   .container { padding: 20px 16px; }
-  .stats-bar { flex-wrap: wrap; gap: 12px; }
-  .stat { min-width: 40%; }
+  .dashboard-row { flex-direction: column; }
+  .breakdown-chips { flex-wrap: wrap; }
+  .chip { min-width: calc(50% - 4px); }
 }

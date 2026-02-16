@@ -37,42 +37,49 @@
         <span class="reset-info-time" id="resetTime"></span>
       </div>
 
-      <!-- Stats Summary: primary row -->
-      <div class="stats-bar" id="statsBar">
-        <div class="stat stat-primary">
-          <span class="stat-number" id="statTotal">0</span>
-          <span class="stat-label">tabs reset</span>
+      <!-- Dashboard Row: Stats + RAM side by side -->
+      <div class="dashboard-row">
+        <!-- Left: Stats -->
+        <div class="dashboard-stats">
+          <div class="stat-hero">
+            <span class="stat-number" id="statTotal">0</span>
+            <span class="stat-label">tabs reset</span>
+          </div>
+          <div class="stat-hero" id="statReopenedWrap" style="display: none;">
+            <span class="stat-number stat-reopened" id="statReopened">0</span>
+            <span class="stat-label">reopened</span>
+          </div>
         </div>
-        <div class="stat stat-primary" id="statReopenedWrap" style="display: none;">
-          <span class="stat-number stat-reopened" id="statReopened">0</span>
-          <span class="stat-label">reopened</span>
-        </div>
-      </div>
-      <!-- Stats Summary: breakdown row -->
-      <div class="stats-bar stats-breakdown" id="statsBreakdown">
-        <div class="stat">
-          <span class="stat-number stat-workhorse" id="statWorkhorses">0</span>
-          <span class="stat-label">workhorses</span>
-        </div>
-        <div class="stat">
-          <span class="stat-number stat-glanced" id="statGlanced">0</span>
-          <span class="stat-label">glanced</span>
-        </div>
-        <div class="stat">
-          <span class="stat-number stat-ghost" id="statGhosts">0</span>
-          <span class="stat-label">ghosts</span>
+
+        <!-- Right: RAM Savings -->
+        <div class="ram-savings" id="ramSavings">
+          <div class="ram-header">
+            <span class="ram-icon">⚡</span>
+            <span class="ram-total" id="ramTotal">~0 MB</span>
+            <span class="ram-suffix">freed</span>
+          </div>
+          <div class="ram-breakdown" id="ramBreakdown"></div>
+          <div class="ram-disclaimer">~100 MB avg per tab</div>
         </div>
       </div>
 
-      <!-- RAM Savings Estimate -->
-      <div class="ram-savings" id="ramSavings">
-        <div class="ram-header">
-          <span class="ram-icon">⚡</span>
-          <span class="ram-total" id="ramTotal">~0 MB</span>
-          <span class="ram-label">estimated RAM freed</span>
+      <!-- Breakdown chips -->
+      <div class="breakdown-chips" id="statsBreakdown">
+        <div class="chip workhorse">
+          <span class="chip-dot"></span>
+          <span class="chip-count" id="statWorkhorses">0</span>
+          <span class="chip-label">workhorses</span>
         </div>
-        <div class="ram-breakdown" id="ramBreakdown"></div>
-        <div class="ram-disclaimer">Based on ~100 MB average per tab. Actual usage varies by site.</div>
+        <div class="chip glanced">
+          <span class="chip-dot"></span>
+          <span class="chip-count" id="statGlanced">0</span>
+          <span class="chip-label">glanced</span>
+        </div>
+        <div class="chip ghost">
+          <span class="chip-dot"></span>
+          <span class="chip-count" id="statGhosts">0</span>
+          <span class="chip-label">ghosts</span>
+        </div>
       </div>
 
       <!-- Quick Actions -->
