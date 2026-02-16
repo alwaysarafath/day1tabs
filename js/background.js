@@ -93,6 +93,9 @@ async function initializeExistingTabs() {
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   if (!trackingActive) return;
 
+  // Start undo timer on first interaction after a reset
+  activateUndoTimer();
+
   // Stop tracking previous tab's focus time
   stopFocusTracking();
 
@@ -351,24 +354,20 @@ async function executeReset() {
   existingArchive.unshift(todayArchive);
   const trimmedArchive = existingArchive.slice(0, 1);
 
-  // Save undo data (full tab state before closing)
+  // Save undo data — timer starts when user next visits, not now
   const undoData = {
     tabs: allTabs.filter(t => tabsToClose.includes(t.id)).map(t => ({
       url: t.url,
       pinned: t.pinned,
       windowId: t.windowId
     })),
-    expiresAt: Date.now() + UNDO_WINDOW_MS
+    activated: false,  // timer hasn't started yet
+    expiresAt: null     // set when user first returns
   };
 
   await chrome.storage.local.set({
     archive: trimmedArchive,
     undoData: undoData
-  });
-
-  // Set undo expiry alarm
-  chrome.alarms.create('day1tabs-undo-expire', {
-    delayInMinutes: UNDO_WINDOW_MS / 60000
   });
 
   // Close tabs (ensure at least one tab remains)
@@ -400,11 +399,31 @@ async function executeReset() {
 // UNDO
 // ============================================================
 
+// Activate the undo timer on first user interaction after a reset
+async function activateUndoTimer() {
+  const data = await chrome.storage.local.get('undoData');
+  const undoData = data.undoData;
+  if (!undoData || undoData.activated) return;
+
+  undoData.activated = true;
+  undoData.expiresAt = Date.now() + UNDO_WINDOW_MS;
+  await chrome.storage.local.set({ undoData });
+
+  chrome.alarms.create('day1tabs-undo-expire', {
+    delayInMinutes: UNDO_WINDOW_MS / 60000
+  });
+
+  console.log('[day1tabs] Undo timer activated — 30 minutes from now');
+}
+
 async function executeUndo() {
   const data = await chrome.storage.local.get(['undoData', 'archive']);
   const undoData = data.undoData;
 
-  if (!undoData || Date.now() > undoData.expiresAt) {
+  if (!undoData) {
+    return { success: false, reason: 'No undo data available' };
+  }
+  if (undoData.activated && Date.now() > undoData.expiresAt) {
     return { success: false, reason: 'Undo window has expired' };
   }
 
@@ -516,6 +535,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function handleMessage(message) {
   switch (message.action) {
     case 'getStatus': {
+      // Activate undo timer when user opens popup/archive
+      await activateUndoTimer();
+
       const data = await chrome.storage.local.get(['resetHour', 'resetMinute', 'resetEnabled', 'undoData', 'sacredDomains', 'archive']);
       const tabs = await chrome.tabs.query({});
       const tabCount = tabs.length;
@@ -537,9 +559,11 @@ async function handleMessage(message) {
       nextReset.setHours(hour, minute, 0, 0);
       if (nextReset <= now) nextReset.setDate(nextReset.getDate() + 1);
 
-      const undoAvailable = data.undoData && Date.now() < data.undoData.expiresAt;
+      const undoAvailable = data.undoData && (!data.undoData.activated || Date.now() < data.undoData.expiresAt);
       const undoTabCount = undoAvailable ? data.undoData.tabs.length : 0;
-      const undoExpiresIn = undoAvailable ? Math.max(0, Math.round((data.undoData.expiresAt - Date.now()) / 60000)) : 0;
+      const undoExpiresIn = undoAvailable
+        ? (data.undoData.activated ? Math.max(0, Math.round((data.undoData.expiresAt - Date.now()) / 60000)) : 30)
+        : 0;
 
       // Count how many tabs have already been reopened from the archive
       let reopenedCount = 0;
