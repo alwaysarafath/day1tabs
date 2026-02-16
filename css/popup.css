@@ -469,13 +469,18 @@ body {
 /* ---- Footer ---- */
 .footer {
   text-align: center;
-  padding-top: 8px;
+  padding-top: 10px;
 }
 
-.footer-text {
+.coffee-link {
   font-size: 11px;
   color: var(--text-dim);
-  font-style: italic;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.coffee-link:hover {
+  color: #ffdd00;
 }
 
 /* ---- Confirmation ---- */
