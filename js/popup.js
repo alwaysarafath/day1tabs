@@ -29,6 +29,12 @@ function renderStatus(status) {
     label.textContent = 'tabs open';
   }
 
+  // Estimated RAM usage
+  const ramEl = document.getElementById('tabRam');
+  const ramMB = status.tabCount * 100;
+  const ramStr = ramMB >= 1000 ? `~${(ramMB / 1000).toFixed(1)} GB` : `~${ramMB} MB`;
+  ramEl.innerHTML = `using <span class="ram-value">${ramStr}</span> estimated RAM`;
+
   // Count bar
   const bar = document.getElementById('countBar');
   bar.className = 'count-bar ' + colorClass;
@@ -178,6 +184,15 @@ function setupEventListeners(status) {
   sacredAddBtn.addEventListener('click', addDomain);
   sacredInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') addDomain();
+  });
+
+  // Never Close toggle
+  document.getElementById('sacredToggle').addEventListener('click', () => {
+    const panel = document.getElementById('sacredPanel');
+    const chevron = document.getElementById('sacredChevron');
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    chevron.classList.toggle('open', !isOpen);
   });
 
   // Settings toggle

@@ -188,6 +188,74 @@ body {
 .stat-glanced { color: var(--glanced); }
 .stat-ghost { color: var(--ghost); }
 
+/* ---- RAM Savings ---- */
+.ram-savings {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.ram-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ram-icon {
+  font-size: 16px;
+}
+
+.ram-total {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--workhorse);
+  letter-spacing: -0.5px;
+}
+
+.ram-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ram-breakdown {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.ram-category {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ram-category .ram-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ram-dot.workhorse { background: var(--workhorse); }
+.ram-dot.glanced { background: var(--glanced); }
+.ram-dot.ghost { background: var(--ghost); }
+
+.ram-category .ram-value {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ram-disclaimer {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 /* ---- Quick Actions ---- */
 .quick-actions {
   display: flex;

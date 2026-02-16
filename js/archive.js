@@ -36,6 +36,7 @@ async function init() {
   });
 
   renderStats(archiveData.stats);
+  renderRamSavings(archiveData.stats);
   renderGroups(archiveData.tabs);
   setupQuickActions();
   setupUndoButton(status);
@@ -56,6 +57,50 @@ function renderStats(stats) {
   } else {
     reopenedWrap.style.display = 'none';
   }
+}
+
+const RAM_PER_TAB_MB = 100;
+
+function renderRamSavings(stats) {
+  const totalTabs = stats.total - (stats.reopened || 0);
+  const totalMB = totalTabs * RAM_PER_TAB_MB;
+  const workhorseMB = stats.workhorses * RAM_PER_TAB_MB;
+  const glancedMB = stats.glanced * RAM_PER_TAB_MB;
+  const ghostMB = stats.ghosts * RAM_PER_TAB_MB;
+
+  document.getElementById('ramTotal').textContent = formatRAM(totalMB);
+
+  const breakdown = document.getElementById('ramBreakdown');
+  breakdown.innerHTML = '';
+
+  const categories = [
+    { label: 'Workhorses', cls: 'workhorse', mb: workhorseMB, count: stats.workhorses },
+    { label: 'Glanced', cls: 'glanced', mb: glancedMB, count: stats.glanced },
+    { label: 'Ghosts', cls: 'ghost', mb: ghostMB, count: stats.ghosts }
+  ];
+
+  for (const cat of categories) {
+    if (cat.count === 0) continue;
+    const el = document.createElement('div');
+    el.className = 'ram-category';
+    el.innerHTML = `
+      <span class="ram-dot ${cat.cls}"></span>
+      <span>${cat.label}:</span>
+      <span class="ram-value">${formatRAM(cat.mb)}</span>
+      <span>(${cat.count} tab${cat.count !== 1 ? 's' : ''})</span>
+    `;
+    breakdown.appendChild(el);
+  }
+
+  // Hide the whole section if nothing was freed
+  document.getElementById('ramSavings').style.display = totalTabs > 0 ? '' : 'none';
+}
+
+function formatRAM(mb) {
+  if (mb >= 1000) {
+    return `~${(mb / 1000).toFixed(1)} GB`;
+  }
+  return `~${mb} MB`;
 }
 
 function renderGroups(tabs) {
@@ -300,6 +345,7 @@ async function refreshArchiveData() {
   if (archive.length > 0 && archive[0].tabs.length > 0) {
     archiveData = archive[0];
     renderStats(archiveData.stats);
+    renderRamSavings(archiveData.stats);
     renderGroups(archiveData.tabs);
   }
 }

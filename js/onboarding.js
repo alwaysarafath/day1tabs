@@ -133,9 +133,9 @@ function renderSacredList() {
 function updateSummary() {
   const summary = document.getElementById('sacredSummary');
   if (sacredDomains.length === 0) {
-    summary.innerHTML = 'No sacred domains set — <em>all tabs will reset</em>';
+    summary.innerHTML = 'No never-close domains set — <em>all tabs will reset</em>';
   } else {
-    summary.innerHTML = `<strong>${sacredDomains.length}</strong> sacred domain${sacredDomains.length !== 1 ? 's' : ''} protected`;
+    summary.innerHTML = `<strong>${sacredDomains.length}</strong> domain${sacredDomains.length !== 1 ? 's' : ''} will never be closed`;
   }
 }
 

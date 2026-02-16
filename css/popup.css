@@ -124,6 +124,17 @@ body {
   margin-top: 2px;
 }
 
+.tab-ram {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.tab-ram .ram-value {
+  color: var(--amber);
+  font-weight: 600;
+}
+
 .count-bar {
   height: 3px;
   background: var(--border);
@@ -257,29 +268,47 @@ body {
   font-size: 14px;
 }
 
-/* ---- Sacred Domains ---- */
+/* ---- Never Close Domains ---- */
 .sacred-section {
-  margin-bottom: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-bottom: 12px;
+}
+
+.sacred-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px 0;
 }
 
 .sacred-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 8px;
 }
 
 .sacred-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
 }
 
 .sacred-count {
   font-size: 11px;
   color: var(--text-dim);
+}
+
+.sacred-panel {
+  padding-top: 10px;
+}
+
+.sacred-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
 }
 
 .sacred-domains {
