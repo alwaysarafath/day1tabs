@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to day1tabs</title>
+  <link rel="stylesheet" href="../css/onboarding.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Step 1: Welcome -->
+    <div class="step active" id="step1">
+      <div class="step-icon">◐</div>
+      <h1>day1tabs</h1>
+      <p class="tagline">Start every day with a clean browser.</p>
+
+      <div class="how-it-works">
+        <div class="how-item">
+          <span class="how-num">1</span>
+          <div>
+            <strong>Midnight reset</strong>
+            <p>All your tabs close automatically. No decisions, no guilt.</p>
+          </div>
+        </div>
+        <div class="how-item">
+          <span class="how-num">2</span>
+          <div>
+            <strong>Morning archive</strong>
+            <p>See what was closed — sorted by how much you actually used each tab.</p>
+          </div>
+        </div>
+        <div class="how-item">
+          <span class="how-num">3</span>
+          <div>
+            <strong>Bring back what matters</strong>
+            <p>One click to reopen your workhorses. Everything else? It was never going to be read anyway.</p>
+          </div>
+        </div>
+      </div>
+
+      <button class="next-btn" data-next="2">Get Started</button>
+    </div>
+
+    <!-- Step 2: Sacred Tabs -->
+    <div class="step" id="step2">
+      <div class="step-icon">🛡️</div>
+      <h2>Protect your essentials</h2>
+      <p class="step-desc">Some tabs should never be touched. Add domains that survive every reset — your email, docs, work tools.</p>
+
+      <div class="sacred-suggestions">
+        <div class="suggestion-label">Quick add:</div>
+        <div class="suggestion-chips" id="suggestions">
+          <button class="suggestion-chip" data-domain="mail.google.com">Gmail</button>
+          <button class="suggestion-chip" data-domain="docs.google.com">Google Docs</button>
+          <button class="suggestion-chip" data-domain="slack.com">Slack</button>
+          <button class="suggestion-chip" data-domain="notion.so">Notion</button>
+          <button class="suggestion-chip" data-domain="github.com">GitHub</button>
+          <button class="suggestion-chip" data-domain="calendar.google.com">Calendar</button>
+          <button class="suggestion-chip" data-domain="drive.google.com">Drive</button>
+          <button class="suggestion-chip" data-domain="outlook.office.com">Outlook</button>
+        </div>
+      </div>
+
+      <div class="sacred-custom">
+        <input type="text" id="customDomain" placeholder="Add any domain (e.g. jira.atlassian.net)" spellcheck="false">
+        <button class="add-custom-btn" id="addCustomBtn">Add</button>
+      </div>
+
+      <div class="sacred-list" id="sacredList"></div>
+
+      <div class="step-actions">
+        <button class="skip-btn" data-next="3">Skip for now</button>
+        <button class="next-btn" data-next="3">Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Ready -->
+    <div class="step" id="step3">
+      <div class="step-icon">✨</div>
+      <h2>You're all set</h2>
+      <p class="step-desc">Tonight at midnight, your tabs reset. Tomorrow morning, you start clean.</p>
+
+      <div class="ready-details">
+        <div class="ready-item">
+          <span class="ready-check">✓</span>
+          <span>Auto-reset scheduled for <strong>midnight</strong></span>
+        </div>
+        <div class="ready-item">
+          <span class="ready-check">✓</span>
+          <span id="sacredSummary">No sacred domains set</span>
+        </div>
+        <div class="ready-item">
+          <span class="ready-check">✓</span>
+          <span>30-minute undo window every morning</span>
+        </div>
+        <div class="ready-item">
+          <span class="ready-check">✓</span>
+          <span>Tab count badge active on your toolbar</span>
+        </div>
+      </div>
+
+      <p class="ready-note">You can change any settings from the extension popup anytime.</p>
+
+      <button class="next-btn done-btn" id="doneBtn">Start Clean →</button>
+    </div>
+  </div>
+
+  <script src="../js/onboarding.js"></script>
+</body>
+</html>

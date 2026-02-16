@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "day1tabs",
+  "version": "1.0.0",
+  "description": "Start every day with a clean browser. Auto-reset tabs at midnight, wake up to what matters.",
+  "permissions": [
+    "tabs",
+    "storage",
+    "alarms"
+  ],
+  "background": {
+    "service_worker": "js/background.js"
+  },
+  "action": {
+    "default_popup": "pages/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

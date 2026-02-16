@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>day1tabs — Archive</title>
+  <link rel="stylesheet" href="../css/archive.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <span class="brand-icon">◐</span>
+        <h1 class="brand-name">day1tabs</h1>
+      </div>
+      <div class="header-actions">
+        <button class="header-btn" id="undoAllBtn" style="display: none;">
+          <span>↩ Undo Reset</span>
+          <span class="undo-countdown" id="undoCountdown"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState" style="display: none;">
+      <div class="empty-icon">✨</div>
+      <h2>No archive yet</h2>
+      <p>After your first reset, your closed tabs will appear here — classified by how you actually used them.</p>
+    </div>
+
+    <!-- Archive Content -->
+    <div id="archiveContent" style="display: none;">
+      <!-- Last Reset Info -->
+      <div class="reset-info" id="resetInfo">
+        <span class="reset-info-label">Last Reset</span>
+        <span class="reset-info-time" id="resetTime"></span>
+      </div>
+
+      <!-- Stats Summary: primary row -->
+      <div class="stats-bar" id="statsBar">
+        <div class="stat stat-primary">
+          <span class="stat-number" id="statTotal">0</span>
+          <span class="stat-label">tabs reset</span>
+        </div>
+        <div class="stat stat-primary" id="statReopenedWrap" style="display: none;">
+          <span class="stat-number stat-reopened" id="statReopened">0</span>
+          <span class="stat-label">reopened</span>
+        </div>
+      </div>
+      <!-- Stats Summary: breakdown row -->
+      <div class="stats-bar stats-breakdown" id="statsBreakdown">
+        <div class="stat">
+          <span class="stat-number stat-workhorse" id="statWorkhorses">0</span>
+          <span class="stat-label">workhorses</span>
+        </div>
+        <div class="stat">
+          <span class="stat-number stat-glanced" id="statGlanced">0</span>
+          <span class="stat-label">glanced</span>
+        </div>
+        <div class="stat">
+          <span class="stat-number stat-ghost" id="statGhosts">0</span>
+          <span class="stat-label">ghosts</span>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <button class="qa-btn primary" id="reopenWorkhorses">
+          Reopen Workhorses
+        </button>
+        <button class="qa-btn" id="reopenAll">
+          Reopen All
+        </button>
+      </div>
+
+      <!-- Tab Groups -->
+      <div class="group" id="groupWorkhorses">
+        <div class="group-header" data-toggle="groupWorkhorses">
+          <div class="group-title">
+            <span class="group-chevron">▾</span>
+            <span class="group-dot workhorse"></span>
+            <h2>Workhorses</h2>
+            <span class="group-count" id="workhorseCount">0</span>
+          </div>
+          <div class="group-actions">
+            <button class="group-btn" data-group="workhorse" data-action="reopen">Reopen all</button>
+          </div>
+        </div>
+        <div class="group-body">
+          <div class="group-description">Tabs you actively used — multiple visits or sustained focus time.</div>
+          <div class="tab-list" id="workhorseList"></div>
+        </div>
+      </div>
+
+      <div class="group" id="groupGlanced">
+        <div class="group-header" data-toggle="groupGlanced">
+          <div class="group-title">
+            <span class="group-chevron">▾</span>
+            <span class="group-dot glanced"></span>
+            <h2>Glanced</h2>
+            <span class="group-count" id="glancedCount">0</span>
+          </div>
+          <div class="group-actions">
+            <button class="group-btn" data-group="glanced" data-action="reopen">Reopen all</button>
+          </div>
+        </div>
+        <div class="group-body">
+          <div class="group-description">Briefly visited — opened and moved on within seconds.</div>
+          <div class="tab-list" id="glancedList"></div>
+        </div>
+      </div>
+
+      <div class="group" id="groupGhosts">
+        <div class="group-header" data-toggle="groupGhosts">
+          <div class="group-title">
+            <span class="group-chevron">▾</span>
+            <span class="group-dot ghost"></span>
+            <h2>Ghosts</h2>
+            <span class="group-count" id="ghostCount">0</span>
+          </div>
+          <div class="group-actions">
+            <button class="group-btn" data-group="ghost" data-action="reopen">Reopen all</button>
+          </div>
+        </div>
+        <div class="group-body">
+          <div class="group-description">Never interacted with after opening. The "read later" tabs that were never read.</div>
+          <div class="tab-list" id="ghostList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>day1tabs · Start clean every day</p>
+    </footer>
+  </div>
+
+  <script src="../js/archive.js"></script>
+</body>
+</html>

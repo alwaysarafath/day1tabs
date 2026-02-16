@@ -1,0 +1,329 @@
+/* ============================================================
+   day1tabs Onboarding
+   ============================================================ */
+
+:root {
+  --bg: #0e0e0e;
+  --bg-surface: #1c1c1c;
+  --bg-hover: #282828;
+  --text: #ececec;
+  --text-muted: #aaa;
+  --text-dim: #777;
+  --accent: #b49bff;
+  --accent-glow: rgba(167, 139, 250, 0.18);
+  --green: #5eead4;
+  --border: #333;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  max-width: 520px;
+  width: 100%;
+  padding: 40px 24px;
+}
+
+/* ---- Steps ---- */
+.step {
+  display: none;
+  text-align: center;
+  animation: fadeIn 0.4s ease;
+}
+
+.step.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.step-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: var(--accent);
+}
+
+.step h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin-bottom: 8px;
+}
+
+.step h2 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.tagline {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-bottom: 36px;
+}
+
+.step-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 28px;
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---- How It Works ---- */
+.how-it-works {
+  text-align: left;
+  margin-bottom: 36px;
+}
+
+.how-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.how-num {
+  width: 28px;
+  height: 28px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.how-item strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.how-item p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ---- Buttons ---- */
+.next-btn {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 12px 32px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.next-btn:hover {
+  opacity: 0.9;
+}
+
+.skip-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 12px 20px;
+  transition: color 0.15s;
+}
+
+.skip-btn:hover {
+  color: var(--text-muted);
+}
+
+.step-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 32px;
+}
+
+/* ---- Sacred Suggestions ---- */
+.sacred-suggestions {
+  margin-bottom: 16px;
+}
+
+.suggestion-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.suggestion-chip {
+  padding: 6px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.suggestion-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.suggestion-chip.added {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---- Custom Domain Input ---- */
+.sacred-custom {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-width: 380px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.sacred-custom input {
+  flex: 1;
+  padding: 8px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.sacred-custom input:focus {
+  border-color: var(--accent);
+}
+
+.sacred-custom input::placeholder {
+  color: var(--text-dim);
+}
+
+.add-custom-btn {
+  padding: 8px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.add-custom-btn:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+/* ---- Sacred List ---- */
+.sacred-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.sacred-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--accent-glow);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.sacred-item .remove {
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.sacred-item .remove:hover {
+  opacity: 1;
+}
+
+/* ---- Ready State ---- */
+.ready-details {
+  text-align: left;
+  max-width: 380px;
+  margin: 0 auto 24px;
+}
+
+.ready-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.ready-item:last-child {
+  border-bottom: none;
+}
+
+.ready-check {
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ready-note {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 28px;
+}
+
+.done-btn {
+  font-size: 15px;
+  padding: 14px 40px;
+}
