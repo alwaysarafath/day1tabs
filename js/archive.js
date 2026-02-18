@@ -28,6 +28,9 @@ async function init() {
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('archiveContent').style.display = 'block';
 
+  // Show morning banner if opened from a reset
+  showMorningBanner(status);
+
   // Show last reset date/time
   const resetDate = new Date(archiveData.timestamp);
   document.getElementById('resetTime').textContent = resetDate.toLocaleString(undefined, {
@@ -430,6 +433,26 @@ function startNextCloseCountdown(status) {
 
   update();
   setInterval(update, 60000);
+}
+
+function showMorningBanner(status) {
+  const params = new URLSearchParams(window.location.search);
+  const source = params.get('source');
+
+  if (!source || !status.undoAvailable) return;
+
+  const banner = document.getElementById('morningBanner');
+  const text = document.getElementById('morningText');
+
+  if (source === 'auto') {
+    text.textContent = "Good morning — your browser is clean. Here's what was closed. Bring back what you need, let the rest go.";
+  } else if (source === 'manual') {
+    text.textContent = "Fresh start done. Here's what was closed. Bring back what you need, let the rest go.";
+  } else {
+    return;
+  }
+
+  banner.style.display = 'block';
 }
 
 function sendMessage(msg) {

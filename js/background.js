@@ -392,6 +392,13 @@ async function executeReset() {
   await initializeExistingTabs();
   await updateBadge();
 
+  // Open archive page (source param added by caller or default to auto)
+  const source = executeReset._source || 'auto';
+  delete executeReset._source;
+  if (tabsToClose.length > 0) {
+    chrome.tabs.create({ url: chrome.runtime.getURL(`pages/archive.html?source=${source}`) });
+  }
+
   console.log(`[day1tabs] Reset complete. Closed ${tabsToClose.length} tabs. Kept ${tabsToKeep.length}.`);
 }
 
@@ -600,6 +607,7 @@ async function handleMessage(message) {
     }
 
     case 'manualReset': {
+      executeReset._source = 'manual';
       await executeReset();
       return { success: true };
     }
