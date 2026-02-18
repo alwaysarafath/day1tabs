@@ -102,6 +102,20 @@ function renderStatus(status) {
   populateTimeDropdowns();
   setTimePickerFromHour24(status.resetHour, status.resetMinute);
   document.getElementById('timeTz').textContent = getTimezoneAbbr();
+
+  // Duplicate auto-close settings
+  const dupTrack = document.getElementById('dupToggleTrack');
+  const dupDelayRow = document.getElementById('dupDelayRow');
+  const dupDelaySelect = document.getElementById('dupDelaySelect');
+
+  if (status.duplicateAutoClose) {
+    dupTrack.classList.add('active');
+    dupDelayRow.style.display = 'flex';
+  } else {
+    dupTrack.classList.remove('active');
+    dupDelayRow.style.display = 'none';
+  }
+  dupDelaySelect.value = status.duplicateAutoCloseMinutes || 10;
 }
 
 function renderSacredDomains(domains) {
@@ -229,6 +243,20 @@ function setupEventListeners(status) {
   document.getElementById('resetHourDisplay').addEventListener('change', saveTime);
   document.getElementById('resetMinute').addEventListener('change', saveTime);
   document.getElementById('resetAmPm').addEventListener('change', saveTime);
+
+  // Duplicate auto-close toggle
+  document.getElementById('dupToggle').addEventListener('click', async () => {
+    const track = document.getElementById('dupToggleTrack');
+    const current = track.classList.contains('active');
+    await sendMessage({ action: 'updateSettings', duplicateAutoClose: !current });
+    const newStatus = await sendMessage({ action: 'getStatus' });
+    renderStatus(newStatus);
+  });
+
+  // Duplicate delay select
+  document.getElementById('dupDelaySelect').addEventListener('change', async (e) => {
+    await sendMessage({ action: 'updateSettings', duplicateAutoCloseMinutes: parseFloat(e.target.value) });
+  });
 }
 
 // ---- Confirmation Dialog ---- 

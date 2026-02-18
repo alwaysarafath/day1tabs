@@ -37,7 +37,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       archive: [],
       undoData: null,
       onboardingComplete: false,
-      resetEnabled: true
+      resetEnabled: true,
+      duplicateAutoClose: false,
+      duplicateAutoCloseMinutes: 10
     });
 
     // Open onboarding
@@ -112,6 +114,9 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   } catch (e) {
     // Tab may have been closed
   }
+
+  // Check for duplicate tabs
+  checkForDuplicates(tabId);
 });
 
 // When a tab's URL changes (navigation)
@@ -141,6 +146,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // Update badge whenever a tab's URL changes (new tab navigated, etc.)
     if (changeInfo.url) {
       updateBadge();
+      checkForDuplicates(tabId);
     }
   }
 });
@@ -149,12 +155,29 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.tabs.onCreated.addListener((tab) => {
   if (!trackingActive) return;
   updateBadge();
+
+  // Check for duplicates after a short delay (URL may not be set yet)
+  setTimeout(async () => {
+    try {
+      const updated = await chrome.tabs.get(tab.id);
+      if (updated.url && !isInternalUrl(updated.url)) {
+        checkForDuplicates(tab.id);
+      }
+    } catch (e) {
+      // Tab may have been closed already
+    }
+  }, 1000);
 });
 
 // When a tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (currentActiveTabId === tabId) {
     stopFocusTracking();
+  }
+  // Clear any duplicate timer for this tab
+  if (duplicateTimers[tabId]) {
+    clearTimeout(duplicateTimers[tabId]);
+    delete duplicateTimers[tabId];
   }
   // Don't delete from tracker - we need this data for classification
   updateBadge();
@@ -333,14 +356,32 @@ async function executeReset() {
     tabsToClose.push(tab.id);
   }
 
+  // Include duplicates auto-closed during the day
+  const dupData = await chrome.storage.local.get('duplicatesClosedToday');
+  const duplicatesClosedToday = dupData.duplicatesClosedToday || [];
+
   // Save archive
   const archive = await chrome.storage.local.get('archive');
   const existingArchive = archive.archive || [];
+
+  // Detect duplicate URLs
+  const urlCounts = {};
+  for (const entry of archiveEntries) {
+    urlCounts[entry.url] = (urlCounts[entry.url] || 0) + 1;
+  }
+  const duplicates = Object.entries(urlCounts)
+    .filter(([, count]) => count >= 2)
+    .map(([url, count]) => {
+      const tab = archiveEntries.find(e => e.url === url);
+      return { url, title: tab.title, favIconUrl: tab.favIconUrl, count };
+    });
 
   const todayArchive = {
     date: new Date().toISOString().split('T')[0],
     timestamp: Date.now(),
     tabs: archiveEntries,
+    duplicates: duplicates,
+    duplicatesClosed: duplicatesClosedToday,
     stats: {
       total: archiveEntries.length,
       reopened: 0,
@@ -367,7 +408,8 @@ async function executeReset() {
 
   await chrome.storage.local.set({
     archive: trimmedArchive,
-    undoData: undoData
+    undoData: undoData,
+    duplicatesClosedToday: []  // reset for new day
   });
 
   // Close tabs (ensure at least one tab remains)
@@ -531,6 +573,126 @@ function extractDomain(url) {
 }
 
 // ============================================================
+// DUPLICATE TAB AUTO-CLOSE
+// ============================================================
+
+// Timers for duplicate tabs: { [tabId]: timeoutId }
+let duplicateTimers = {};
+
+function clearAllDuplicateTimers() {
+  for (const tabId of Object.keys(duplicateTimers)) {
+    clearTimeout(duplicateTimers[tabId]);
+  }
+  duplicateTimers = {};
+}
+
+async function checkForDuplicates(triggeredByTabId) {
+  const data = await chrome.storage.local.get(['duplicateAutoClose', 'duplicateAutoCloseMinutes', 'sacredDomains']);
+  console.log('[day1tabs:dup] checkForDuplicates called, tabId:', triggeredByTabId, 'enabled:', data.duplicateAutoClose, 'delay:', data.duplicateAutoCloseMinutes);
+
+  if (!data.duplicateAutoClose) return;
+
+  const delayMs = (data.duplicateAutoCloseMinutes || 10) * 60 * 1000;
+  const sacredDomains = data.sacredDomains || [];
+
+  let triggerTab;
+  try {
+    triggerTab = await chrome.tabs.get(triggeredByTabId);
+  } catch (e) {
+    console.log('[day1tabs:dup] Could not get tab', triggeredByTabId);
+    return;
+  }
+
+  if (!triggerTab.url || isInternalUrl(triggerTab.url)) {
+    console.log('[day1tabs:dup] Skipping internal URL:', triggerTab.url);
+    return;
+  }
+
+  // Never auto-close duplicates of sacred domains
+  const domain = extractDomain(triggerTab.url);
+  if (sacredDomains.some(sd => domain.includes(sd))) {
+    console.log('[day1tabs:dup] Skipping sacred domain:', domain);
+    return;
+  }
+
+  // Find ALL tabs with this URL
+  const allTabs = await chrome.tabs.query({});
+  const sameUrlTabs = allTabs.filter(t => t.url === triggerTab.url);
+
+  if (sameUrlTabs.length < 2) {
+    // No duplicates — cancel any timer for this tab
+    if (duplicateTimers[triggeredByTabId]) {
+      clearTimeout(duplicateTimers[triggeredByTabId]);
+      delete duplicateTimers[triggeredByTabId];
+    }
+    return;
+  }
+
+  console.log('[day1tabs:dup] URL:', triggerTab.url, '| Total copies:', sameUrlTabs.length, '| Delay:', delayMs, 'ms');
+
+  // Find the currently focused tab among the duplicates
+  const [focusedTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const focusedId = focusedTab ? focusedTab.id : null;
+
+  // Determine which tab to keep: the focused one if it's a duplicate, otherwise the most recently activated
+  let keepTabId;
+  const focusedDup = sameUrlTabs.find(t => t.id === focusedId);
+  if (focusedDup) {
+    keepTabId = focusedDup.id;
+  } else {
+    // Keep the one the user triggered or the first active one
+    keepTabId = triggeredByTabId;
+  }
+
+  // Cancel timer on the tab we're keeping
+  if (duplicateTimers[keepTabId]) {
+    clearTimeout(duplicateTimers[keepTabId]);
+    delete duplicateTimers[keepTabId];
+  }
+
+  // Start timers on all other copies
+  for (const dup of sameUrlTabs) {
+    if (dup.id === keepTabId) continue;
+    if (duplicateTimers[dup.id]) {
+      console.log('[day1tabs:dup] Timer already exists for tab', dup.id);
+      continue;
+    }
+
+    console.log('[day1tabs:dup] Starting timer for duplicate tab', dup.id, '- will close in', delayMs / 1000, 'sec');
+    duplicateTimers[dup.id] = setTimeout(async () => {
+      delete duplicateTimers[dup.id];
+      try {
+        const tabToClose = await chrome.tabs.get(dup.id);
+        await logDuplicateClosure(tabToClose);
+        await chrome.tabs.remove(dup.id);
+        console.log(`[day1tabs:dup] Closed duplicate tab ${dup.id}: ${tabToClose.url}`);
+      } catch (e) {
+        console.log('[day1tabs:dup] Failed to close tab', dup.id, e);
+      }
+    }, delayMs);
+  }
+}
+
+async function logDuplicateClosure(tab) {
+  const data = await chrome.storage.local.get(['duplicatesClosedToday', 'duplicatesClosedDate']);
+  const today = new Date().toISOString().split('T')[0];
+
+  // Reset if it's a new calendar day
+  let list = data.duplicatesClosedToday || [];
+  if (data.duplicatesClosedDate !== today) {
+    list = [];
+  }
+
+  list.push({
+    url: tab.url,
+    title: tab.title || 'Untitled',
+    favIconUrl: tab.favIconUrl || '',
+    closedAt: Date.now()
+  });
+  await chrome.storage.local.set({ duplicatesClosedToday: list, duplicatesClosedDate: today });
+}
+
+// ============================================================
 // MESSAGE HANDLING (from popup & archive page)
 // ============================================================
 
@@ -545,7 +707,7 @@ async function handleMessage(message) {
       // Activate undo timer when user opens popup/archive
       await activateUndoTimer();
 
-      const data = await chrome.storage.local.get(['resetHour', 'resetMinute', 'resetEnabled', 'undoData', 'sacredDomains', 'archive']);
+      const data = await chrome.storage.local.get(['resetHour', 'resetMinute', 'resetEnabled', 'undoData', 'sacredDomains', 'archive', 'duplicateAutoClose', 'duplicateAutoCloseMinutes']);
       const tabs = await chrome.tabs.query({});
       const tabCount = tabs.length;
       const windowCount = new Set(tabs.map(t => t.windowId)).size;
@@ -593,13 +755,20 @@ async function handleMessage(message) {
         undoTabCount,
         undoRemainingCount,
         undoExpiresIn,
-        sacredDomains: data.sacredDomains || []
+        sacredDomains: data.sacredDomains || [],
+        duplicateAutoClose: !!data.duplicateAutoClose,
+        duplicateAutoCloseMinutes: data.duplicateAutoCloseMinutes || 10
       };
     }
 
     case 'getArchive': {
-      const data = await chrome.storage.local.get('archive');
-      return { archive: data.archive || [] };
+      const data = await chrome.storage.local.get(['archive', 'duplicatesClosedToday', 'duplicatesClosedDate']);
+      const today = new Date().toISOString().split('T')[0];
+      const dupList = (data.duplicatesClosedDate === today) ? (data.duplicatesClosedToday || []) : [];
+      return {
+        archive: data.archive || [],
+        duplicatesClosedToday: dupList
+      };
     }
 
     case 'undo': {
@@ -684,12 +853,19 @@ async function handleMessage(message) {
       if (message.resetEnabled !== undefined) updates.resetEnabled = message.resetEnabled;
       if (message.sacredDomains !== undefined) updates.sacredDomains = message.sacredDomains;
       if (message.onboardingComplete !== undefined) updates.onboardingComplete = message.onboardingComplete;
+      if (message.duplicateAutoClose !== undefined) updates.duplicateAutoClose = message.duplicateAutoClose;
+      if (message.duplicateAutoCloseMinutes !== undefined) updates.duplicateAutoCloseMinutes = message.duplicateAutoCloseMinutes;
 
       await chrome.storage.local.set(updates);
 
       // Reschedule alarm if time changed
       if (updates.resetHour !== undefined || updates.resetMinute !== undefined || updates.resetEnabled !== undefined) {
         await scheduleResetAlarm();
+      }
+
+      // Clear duplicate timers if feature disabled
+      if (updates.duplicateAutoClose === false) {
+        clearAllDuplicateTimers();
       }
 
       return { success: true };

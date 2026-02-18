@@ -342,6 +342,142 @@ body {
   margin-top: 4px;
 }
 
+/* ---- Duplicates Section ---- */
+.duplicates-section {
+  background: rgba(251, 191, 36, 0.06);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-top: 32px;
+}
+
+.duplicates-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.duplicates-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.duplicates-chevron {
+  font-size: 18px;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  transform: rotate(-90deg);
+}
+
+.duplicates-section.expanded .duplicates-chevron {
+  transform: rotate(0deg);
+}
+
+.duplicates-body {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+
+.duplicates-section.expanded .duplicates-body {
+  max-height: 2000px;
+  opacity: 1;
+  margin-top: 10px;
+}
+
+.duplicates-icon {
+  font-size: 14px;
+  color: var(--amber);
+}
+
+.duplicates-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--amber);
+}
+
+.duplicates-count {
+  font-size: 11px;
+  color: var(--text-dim);
+  background: rgba(251, 191, 36, 0.12);
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.duplicates-ram {
+  font-size: 13px;
+  color: var(--amber);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.duplicates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.duplicate-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: rgba(251, 191, 36, 0.05);
+  border-radius: var(--radius-sm);
+}
+
+.duplicate-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.duplicate-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.duplicate-url {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.duplicate-count {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--amber);
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.duplicate-badge {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--workhorse);
+  background: rgba(94, 234, 212, 0.1);
+  border: 1px solid rgba(94, 234, 212, 0.2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.duplicates-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 /* ---- Quick Actions ---- */
 .quick-actions {
   display: flex;

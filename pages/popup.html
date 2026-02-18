@@ -98,6 +98,24 @@
           </div>
         </div>
         <input type="hidden" id="resetHour" value="0">
+        <div class="setting-divider"></div>
+        <div class="setting-row">
+          <label>Auto-close duplicates</label>
+          <div class="mini-toggle" id="dupToggle">
+            <div class="toggle-track" id="dupToggleTrack">
+              <div class="toggle-thumb"></div>
+            </div>
+          </div>
+        </div>
+        <div class="setting-row dup-delay-row" id="dupDelayRow" style="display: none;">
+          <label>Close after</label>
+          <select id="dupDelaySelect" class="dup-delay-select">
+            <option value="0.5">30 sec (test)</option>
+            <option value="5">5 min</option>
+            <option value="10">10 min</option>
+            <option value="30">30 min</option>
+          </select>
+        </div>
       </div>
     </div>
 

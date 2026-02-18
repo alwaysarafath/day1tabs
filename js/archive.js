@@ -40,6 +40,10 @@ async function init() {
 
   renderStats(archiveData.stats);
   renderRamSavings(archiveData.stats);
+
+  // Combine duplicates: from reset + auto-closed during the day
+  const dupsClosed = archiveData.duplicatesClosed || result.duplicatesClosedToday || [];
+  renderDuplicates(archiveData.duplicates || [], dupsClosed);
   renderGroups(archiveData.tabs);
   setupQuickActions();
   setupUndoButton(status);
@@ -105,6 +109,93 @@ function formatRAM(mb) {
     return `~${(mb / 1000).toFixed(1)} GB`;
   }
   return `~${mb} MB`;
+}
+
+function renderDuplicates(duplicatesAtReset, duplicatesClosed) {
+  const section = document.getElementById('duplicatesSection');
+  const hasResetDups = duplicatesAtReset && duplicatesAtReset.length > 0;
+  const hasClosedDups = duplicatesClosed && duplicatesClosed.length > 0;
+
+  if (!hasResetDups && !hasClosedDups) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+
+  // Wire up collapsible toggle
+  document.getElementById('duplicatesToggle').addEventListener('click', () => {
+    section.classList.toggle('expanded');
+  });
+
+  // Group closed duplicates by URL for display
+  const closedByUrl = {};
+  if (hasClosedDups) {
+    for (const dup of duplicatesClosed) {
+      if (!closedByUrl[dup.url]) {
+        closedByUrl[dup.url] = { url: dup.url, title: dup.title, favIconUrl: dup.favIconUrl, count: 0 };
+      }
+      closedByUrl[dup.url].count++;
+    }
+  }
+  const closedGroups = Object.values(closedByUrl);
+
+  const totalCount = (duplicatesAtReset ? duplicatesAtReset.length : 0) + closedGroups.length;
+  document.getElementById('duplicatesCount').textContent = totalCount;
+
+  // Calculate total duplicate tabs closed/found and estimate RAM
+  const totalDupTabs = (hasClosedDups ? duplicatesClosed.length : 0) +
+    (hasResetDups ? duplicatesAtReset.reduce((sum, d) => sum + d.count - 1, 0) : 0);
+  const dupRamMB = totalDupTabs * RAM_PER_TAB_MB;
+  document.getElementById('duplicatesRam').textContent = `(⚡~${formatRAM(dupRamMB)} freed)`;
+
+  const list = document.getElementById('duplicatesList');
+  list.innerHTML = '';
+
+  // Show auto-closed duplicates first (these are the valuable ones)
+  if (hasClosedDups) {
+    for (const dup of closedGroups) {
+      const domain = extractDomain(dup.url);
+      const item = document.createElement('div');
+      item.className = 'duplicate-item auto-closed';
+      item.innerHTML = `
+        <div class="duplicate-info">
+          <span class="duplicate-title">${escapeHtml(dup.title)}</span>
+          <span class="duplicate-url">${escapeHtml(domain)}</span>
+        </div>
+        <span class="duplicate-badge">auto-closed</span>
+        <span class="duplicate-count">${dup.count}×</span>
+      `;
+      list.appendChild(item);
+    }
+  }
+
+  // Show duplicates found at reset
+  if (hasResetDups) {
+    for (const dup of duplicatesAtReset) {
+      const domain = extractDomain(dup.url);
+      const item = document.createElement('div');
+      item.className = 'duplicate-item';
+      item.innerHTML = `
+        <div class="duplicate-info">
+          <span class="duplicate-title">${escapeHtml(dup.title)}</span>
+          <span class="duplicate-url">${escapeHtml(domain)}</span>
+        </div>
+        <span class="duplicate-count">${dup.count}×</span>
+      `;
+      list.appendChild(item);
+    }
+  }
+
+  // Update hint based on what we have
+  const hint = document.getElementById('duplicatesHint');
+  if (hasClosedDups && !hasResetDups) {
+    hint.textContent = `${duplicatesClosed.length} duplicate tab${duplicatesClosed.length !== 1 ? 's' : ''} auto-closed today. Less clutter, more focus.`;
+  } else if (hasClosedDups && hasResetDups) {
+    hint.textContent = `${duplicatesClosed.length} auto-closed during the day + ${duplicatesAtReset.length} found at reset. Duplicates are tab clutter.`;
+  } else {
+    hint.textContent = 'These pages were open multiple times. This is why you need fewer tabs.';
+  }
 }
 
 function renderGroups(tabs) {
