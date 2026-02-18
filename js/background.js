@@ -588,8 +588,6 @@ function clearAllDuplicateTimers() {
 
 async function checkForDuplicates(triggeredByTabId) {
   const data = await chrome.storage.local.get(['duplicateAutoClose', 'duplicateAutoCloseMinutes', 'sacredDomains']);
-  console.log('[day1tabs:dup] checkForDuplicates called, tabId:', triggeredByTabId, 'enabled:', data.duplicateAutoClose, 'delay:', data.duplicateAutoCloseMinutes);
-
   if (!data.duplicateAutoClose) return;
 
   const delayMs = (data.duplicateAutoCloseMinutes || 10) * 60 * 1000;
@@ -599,28 +597,20 @@ async function checkForDuplicates(triggeredByTabId) {
   try {
     triggerTab = await chrome.tabs.get(triggeredByTabId);
   } catch (e) {
-    console.log('[day1tabs:dup] Could not get tab', triggeredByTabId);
     return;
   }
 
-  if (!triggerTab.url || isInternalUrl(triggerTab.url)) {
-    console.log('[day1tabs:dup] Skipping internal URL:', triggerTab.url);
-    return;
-  }
+  if (!triggerTab.url || isInternalUrl(triggerTab.url)) return;
 
   // Never auto-close duplicates of sacred domains
   const domain = extractDomain(triggerTab.url);
-  if (sacredDomains.some(sd => domain.includes(sd))) {
-    console.log('[day1tabs:dup] Skipping sacred domain:', domain);
-    return;
-  }
+  if (sacredDomains.some(sd => domain.includes(sd))) return;
 
   // Find ALL tabs with this URL
   const allTabs = await chrome.tabs.query({});
   const sameUrlTabs = allTabs.filter(t => t.url === triggerTab.url);
 
   if (sameUrlTabs.length < 2) {
-    // No duplicates — cancel any timer for this tab
     if (duplicateTimers[triggeredByTabId]) {
       clearTimeout(duplicateTimers[triggeredByTabId]);
       delete duplicateTimers[triggeredByTabId];
@@ -628,21 +618,12 @@ async function checkForDuplicates(triggeredByTabId) {
     return;
   }
 
-  console.log('[day1tabs:dup] URL:', triggerTab.url, '| Total copies:', sameUrlTabs.length, '| Delay:', delayMs, 'ms');
-
   // Find the currently focused tab among the duplicates
   const [focusedTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   const focusedId = focusedTab ? focusedTab.id : null;
 
-  // Determine which tab to keep: the focused one if it's a duplicate, otherwise the most recently activated
-  let keepTabId;
   const focusedDup = sameUrlTabs.find(t => t.id === focusedId);
-  if (focusedDup) {
-    keepTabId = focusedDup.id;
-  } else {
-    // Keep the one the user triggered or the first active one
-    keepTabId = triggeredByTabId;
-  }
+  const keepTabId = focusedDup ? focusedDup.id : triggeredByTabId;
 
   // Cancel timer on the tab we're keeping
   if (duplicateTimers[keepTabId]) {
@@ -653,21 +634,16 @@ async function checkForDuplicates(triggeredByTabId) {
   // Start timers on all other copies
   for (const dup of sameUrlTabs) {
     if (dup.id === keepTabId) continue;
-    if (duplicateTimers[dup.id]) {
-      console.log('[day1tabs:dup] Timer already exists for tab', dup.id);
-      continue;
-    }
+    if (duplicateTimers[dup.id]) continue;
 
-    console.log('[day1tabs:dup] Starting timer for duplicate tab', dup.id, '- will close in', delayMs / 1000, 'sec');
     duplicateTimers[dup.id] = setTimeout(async () => {
       delete duplicateTimers[dup.id];
       try {
         const tabToClose = await chrome.tabs.get(dup.id);
         await logDuplicateClosure(tabToClose);
         await chrome.tabs.remove(dup.id);
-        console.log(`[day1tabs:dup] Closed duplicate tab ${dup.id}: ${tabToClose.url}`);
       } catch (e) {
-        console.log('[day1tabs:dup] Failed to close tab', dup.id, e);
+        // Tab may already be closed
       }
     }, delayMs);
   }
