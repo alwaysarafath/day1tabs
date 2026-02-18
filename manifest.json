@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "day1tabs",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Start every day with a clean browser. Auto-reset tabs at midnight, wake up to what matters.",
   "permissions": [
     "tabs",
