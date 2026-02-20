@@ -99,8 +99,7 @@ If this privacy policy is updated, the changes will be reflected in this documen
 If you have questions about this privacy policy or the extension, please reach out:
 
 - **GitHub Issues:** [github.com/himaarafath/day1tabs/issues](https://github.com/himaarafath/day1tabs/issues)
-- **Email:** himaarafath@gmail.com
-
+-** https://www.day1tabs.com **
 ---
 
 **In short:** day1tabs runs entirely on your device. Nothing leaves your browser. Your tabs, your data, your control.
