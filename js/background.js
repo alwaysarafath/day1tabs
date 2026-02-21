@@ -462,13 +462,12 @@ async function executeReset(source) {
   if (tabsToClose.length > 0) {
     await chrome.storage.local.set({ lastResetSource: source });
     try {
-      const windows = await chrome.windows.getAll({ populate: false });
-      if (windows.length > 0) {
-        await chrome.sidePanel.open({ windowId: windows[0].id });
+      const [focusedWindow] = await chrome.windows.getAll({ windowTypes: ['normal'] });
+      if (focusedWindow) {
+        await chrome.sidePanel.open({ windowId: focusedWindow.id });
       }
     } catch (e) {
-      // Fallback: open archive page as a tab
-      chrome.tabs.create({ url: chrome.runtime.getURL(`pages/archive.html?source=${source}`) });
+      console.log('[day1tabs] Could not open side panel after reset:', e);
     }
   }
 
