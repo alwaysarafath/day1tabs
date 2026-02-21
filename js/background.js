@@ -11,7 +11,6 @@ const THRESHOLDS = {
   GHOST_FOCUS_MS: 5000           // 5 seconds
 };
 
-const UNDO_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_RESET_HOUR = 0;  // midnight
 const DEFAULT_RESET_MINUTE = 0;
 
@@ -94,9 +93,6 @@ async function initializeExistingTabs() {
 // When user switches to a tab
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   if (!trackingActive) return;
-
-  // Start undo timer on first interaction after a reset
-  activateUndoTimer();
 
   // Stop tracking previous tab's focus time
   stopFocusTracking();
@@ -294,38 +290,53 @@ async function scheduleResetAlarm() {
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'day1tabs-reset') {
-    await executeReset();
-  }
-  if (alarm.name === 'day1tabs-undo-expire') {
-    await chrome.storage.local.set({ undoData: null });
+    await executeReset('auto');
   }
 });
 
-async function executeReset() {
+async function executeReset(source) {
+  source = source || 'auto';
+  console.log(`[day1tabs] executeReset called, source=${source}`);
+
   const data = await chrome.storage.local.get(['sacredDomains', 'resetEnabled']);
 
-  if (data.resetEnabled === false) return;
+  // Only check resetEnabled for scheduled (auto) resets, not manual
+  if (source !== 'manual' && data.resetEnabled === false) {
+    console.log('[day1tabs] Reset skipped — auto-close is disabled');
+    return;
+  }
 
   // Flush current focus tracking
   stopFocusTracking();
 
   const sacredDomains = data.sacredDomains || [];
   const allTabs = await chrome.tabs.query({});
+  console.log(`[day1tabs] Total tabs found: ${allTabs.length}, sacred domains: ${sacredDomains.join(', ')}`);
 
   const tabsToClose = [];
   const tabsToKeep = [];
   const archiveEntries = [];
 
   for (const tab of allTabs) {
-    // Skip internal chrome pages
+    // Skip internal chrome pages — but close new-tab pages (empty clutter)
     if (!tab.url || isInternalUrl(tab.url)) {
+      if (tab.url && tab.url.startsWith('chrome://newtab')) {
+        tabsToClose.push(tab.id);  // close but don't archive
+      } else {
+        tabsToKeep.push(tab);
+      }
+      continue;
+    }
+
+    // Skip pinned tabs
+    if (tab.pinned) {
       tabsToKeep.push(tab);
       continue;
     }
 
-    // Check if tab's domain is sacred
+    // Check if tab's domain is in never-close list
     const domain = extractDomain(tab.url);
-    if (sacredDomains.some(sd => domain.includes(sd))) {
+    if (sacredDomains.some(sd => isDomainMatch(domain, sd))) {
       tabsToKeep.push(tab);
       continue;
     }
@@ -385,9 +396,8 @@ async function executeReset() {
     stats: {
       total: archiveEntries.length,
       reopened: 0,
-      workhorses: archiveEntries.filter(t => t.classification === 'workhorse').length,
-      glanced: archiveEntries.filter(t => t.classification === 'glanced').length,
-      ghosts: archiveEntries.filter(t => t.classification === 'ghost').length
+      used: archiveEntries.filter(t => t.classification === 'workhorse').length,
+      didntUse: archiveEntries.filter(t => t.classification !== 'workhorse').length
     }
   };
 
@@ -395,15 +405,14 @@ async function executeReset() {
   existingArchive.unshift(todayArchive);
   const trimmedArchive = existingArchive.slice(0, 1);
 
-  // Save undo data — timer starts when user next visits, not now
+  // Save undo data — persists until next reset
   const undoData = {
     tabs: allTabs.filter(t => tabsToClose.includes(t.id)).map(t => ({
       url: t.url,
       pinned: t.pinned,
       windowId: t.windowId
     })),
-    activated: false,  // timer hasn't started yet
-    expiresAt: null     // set when user first returns
+    resetAt: Date.now()
   };
 
   await chrome.storage.local.set({
@@ -412,19 +421,34 @@ async function executeReset() {
     duplicatesClosedToday: []  // reset for new day
   });
 
-  // Close tabs (ensure at least one tab remains)
-  if (tabsToKeep.length === 0 || tabsToKeep.every(t => isInternalUrl(t.url))) {
-    // Create a new tab so browser doesn't close
+  console.log(`[day1tabs] tabsToClose: ${tabsToClose.length}, tabsToKeep: ${tabsToKeep.length}`);
+
+  // Ensure at least one tab will remain so the browser doesn't quit
+  const hasKeptNormalTab = tabsToKeep.some(t => !isInternalUrl(t.url));
+  if (!hasKeptNormalTab) {
+    console.log('[day1tabs] No normal tabs kept, creating new tab');
     await chrome.tabs.create({ url: 'chrome://newtab' });
   }
 
-  // Close the tabs
+  // Close all marked tabs across all windows
   if (tabsToClose.length > 0) {
+    console.log(`[day1tabs] About to close tab IDs: ${tabsToClose.join(', ')}`);
     try {
       await chrome.tabs.remove(tabsToClose);
+      console.log('[day1tabs] Batch close succeeded');
     } catch (e) {
-      console.error('[day1tabs] Error closing tabs:', e);
+      console.error('[day1tabs] Batch close failed, closing individually:', e);
+      for (const tabId of tabsToClose) {
+        try {
+          await chrome.tabs.remove(tabId);
+          console.log(`[day1tabs] Closed tab ${tabId}`);
+        } catch (e2) {
+          console.error(`[day1tabs] Failed to close tab ${tabId}:`, e2);
+        }
+      }
     }
+  } else {
+    console.log('[day1tabs] No tabs to close');
   }
 
   // Reset tracker for new day
@@ -434,11 +458,18 @@ async function executeReset() {
   await initializeExistingTabs();
   await updateBadge();
 
-  // Open archive page (source param added by caller or default to auto)
-  const source = executeReset._source || 'auto';
-  delete executeReset._source;
+  // Open side panel after reset
   if (tabsToClose.length > 0) {
-    chrome.tabs.create({ url: chrome.runtime.getURL(`pages/archive.html?source=${source}`) });
+    await chrome.storage.local.set({ lastResetSource: source });
+    try {
+      const windows = await chrome.windows.getAll({ populate: false });
+      if (windows.length > 0) {
+        await chrome.sidePanel.open({ windowId: windows[0].id });
+      }
+    } catch (e) {
+      // Fallback: open archive page as a tab
+      chrome.tabs.create({ url: chrome.runtime.getURL(`pages/archive.html?source=${source}`) });
+    }
   }
 
   console.log(`[day1tabs] Reset complete. Closed ${tabsToClose.length} tabs. Kept ${tabsToKeep.length}.`);
@@ -448,23 +479,6 @@ async function executeReset() {
 // UNDO
 // ============================================================
 
-// Activate the undo timer on first user interaction after a reset
-async function activateUndoTimer() {
-  const data = await chrome.storage.local.get('undoData');
-  const undoData = data.undoData;
-  if (!undoData || undoData.activated) return;
-
-  undoData.activated = true;
-  undoData.expiresAt = Date.now() + UNDO_WINDOW_MS;
-  await chrome.storage.local.set({ undoData });
-
-  chrome.alarms.create('day1tabs-undo-expire', {
-    delayInMinutes: UNDO_WINDOW_MS / 60000
-  });
-
-  console.log('[day1tabs] Undo timer activated — 30 minutes from now');
-}
-
 async function executeUndo() {
   const data = await chrome.storage.local.get(['undoData', 'archive']);
   const undoData = data.undoData;
@@ -472,13 +486,10 @@ async function executeUndo() {
   if (!undoData) {
     return { success: false, reason: 'No undo data available' };
   }
-  if (undoData.activated && Date.now() > undoData.expiresAt) {
-    return { success: false, reason: 'Undo window has expired' };
-  }
 
   const archiveArr = data.archive || [];
 
-  // Get all currently open URLs to avoid duplicates (e.g. sacred tabs still open)
+  // Get all currently open URLs to avoid duplicates (e.g. never-close tabs still open)
   const openTabs = await chrome.tabs.query({});
   const openUrls = new Set(openTabs.map(t => t.url));
 
@@ -509,16 +520,14 @@ async function executeUndo() {
     archiveArr[0].stats = {
       total: archiveArr[0].tabs.length,
       reopened: archiveArr[0].tabs.length,
-      workhorses: 0,
-      glanced: 0,
-      ghosts: 0
+      used: 0,
+      didntUse: 0
     };
     await chrome.storage.local.set({ archive: archiveArr });
   }
 
   // Clear undo data
   await chrome.storage.local.set({ undoData: null });
-  await chrome.alarms.clear('day1tabs-undo-expire');
   await updateBadge();
 
   return { success: true, count: reopenedCount };
@@ -566,10 +575,14 @@ function isInternalUrl(url) {
 function extractDomain(url) {
   try {
     const u = new URL(url);
-    return u.hostname.replace('www.', '');
+    return u.hostname.replace(/^www\./, '');
   } catch {
     return '';
   }
+}
+
+function isDomainMatch(tabHostname, storedDomain) {
+  return tabHostname === storedDomain || tabHostname.endsWith('.' + storedDomain);
 }
 
 // ============================================================
@@ -602,9 +615,12 @@ async function checkForDuplicates(triggeredByTabId) {
 
   if (!triggerTab.url || isInternalUrl(triggerTab.url)) return;
 
-  // Never auto-close duplicates of sacred domains
+  // Never auto-close pinned tabs
+  if (triggerTab.pinned) return;
+
+  // Never auto-close duplicates of never-close domains
   const domain = extractDomain(triggerTab.url);
-  if (sacredDomains.some(sd => domain.includes(sd))) return;
+  if (sacredDomains.some(sd => isDomainMatch(domain, sd))) return;
 
   // Find ALL tabs with this URL
   const allTabs = await chrome.tabs.query({});
@@ -640,6 +656,7 @@ async function checkForDuplicates(triggeredByTabId) {
       delete duplicateTimers[dup.id];
       try {
         const tabToClose = await chrome.tabs.get(dup.id);
+        if (tabToClose.pinned) return; // Never close pinned tabs
         await logDuplicateClosure(tabToClose);
         await chrome.tabs.remove(dup.id);
       } catch (e) {
@@ -673,31 +690,34 @@ async function logDuplicateClosure(tab) {
 // ============================================================
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message).then(sendResponse);
+  handleMessage(message)
+    .then(sendResponse)
+    .catch(e => {
+      console.error('[day1tabs] Message handler error:', e);
+      sendResponse({ error: e.message });
+    });
   return true; // async response
 });
 
 async function handleMessage(message) {
   switch (message.action) {
     case 'getStatus': {
-      // Activate undo timer when user opens popup/archive
-      await activateUndoTimer();
-
       const data = await chrome.storage.local.get(['resetHour', 'resetMinute', 'resetEnabled', 'undoData', 'sacredDomains', 'archive', 'duplicateAutoClose', 'duplicateAutoCloseMinutes']);
       const tabs = await chrome.tabs.query({});
       const tabCount = tabs.length;
       const windowCount = new Set(tabs.map(t => t.windowId)).size;
 
-      // Count tabs that would actually be closed in a reset
+      // Count tabs that would actually be closed
       const sacredDomains = data.sacredDomains || [];
       const resettableCount = tabs.filter(t => {
         if (!t.url || isInternalUrl(t.url)) return false;
+        if (t.pinned) return false;
         const domain = extractDomain(t.url);
-        if (sacredDomains.some(sd => domain.includes(sd))) return false;
+        if (sacredDomains.some(sd => isDomainMatch(domain, sd))) return false;
         return true;
       }).length;
 
-      // Calculate next reset
+      // Calculate next close time
       const hour = data.resetHour ?? DEFAULT_RESET_HOUR;
       const minute = data.resetMinute ?? DEFAULT_RESET_MINUTE;
       const now = new Date();
@@ -705,11 +725,8 @@ async function handleMessage(message) {
       nextReset.setHours(hour, minute, 0, 0);
       if (nextReset <= now) nextReset.setDate(nextReset.getDate() + 1);
 
-      const undoAvailable = data.undoData && (!data.undoData.activated || Date.now() < data.undoData.expiresAt);
+      const undoAvailable = !!data.undoData;
       const undoTabCount = undoAvailable ? data.undoData.tabs.length : 0;
-      const undoExpiresIn = undoAvailable
-        ? (data.undoData.activated ? Math.max(0, Math.round((data.undoData.expiresAt - Date.now()) / 60000)) : 30)
-        : 0;
 
       // Count how many tabs have already been reopened from the archive
       let reopenedCount = 0;
@@ -730,7 +747,6 @@ async function handleMessage(message) {
         undoAvailable,
         undoTabCount,
         undoRemainingCount,
-        undoExpiresIn,
         sacredDomains: data.sacredDomains || [],
         duplicateAutoClose: !!data.duplicateAutoClose,
         duplicateAutoCloseMinutes: data.duplicateAutoCloseMinutes || 10
@@ -752,8 +768,8 @@ async function handleMessage(message) {
     }
 
     case 'manualReset': {
-      executeReset._source = 'manual';
-      await executeReset();
+      console.log('[day1tabs] manualReset message received');
+      await executeReset('manual');
       return { success: true };
     }
 
@@ -789,9 +805,8 @@ async function handleMessage(message) {
         latestDay.stats = {
           total: latestDay.tabs.length,
           reopened: latestDay.tabs.filter(t => t.reopened).length,
-          workhorses: nonReopened.filter(t => t.classification === 'workhorse').length,
-          glanced: nonReopened.filter(t => t.classification === 'glanced').length,
-          ghosts: nonReopened.filter(t => t.classification === 'ghost').length
+          used: nonReopened.filter(t => t.classification === 'workhorse').length,
+          didntUse: nonReopened.filter(t => t.classification !== 'workhorse').length
         };
         await chrome.storage.local.set({ archive: archiveArr });
       }
@@ -812,9 +827,8 @@ async function handleMessage(message) {
         dayArchive.stats = {
           total: dayArchive.tabs.length,
           reopened: dayArchive.tabs.filter(t => t.reopened).length,
-          workhorses: nonReopened.filter(t => t.classification === 'workhorse').length,
-          glanced: nonReopened.filter(t => t.classification === 'glanced').length,
-          ghosts: nonReopened.filter(t => t.classification === 'ghost').length
+          used: nonReopened.filter(t => t.classification === 'workhorse').length,
+          didntUse: nonReopened.filter(t => t.classification !== 'workhorse').length
         };
         await chrome.storage.local.set({ archive });
         return { success: true };
@@ -850,7 +864,11 @@ async function handleMessage(message) {
     case 'addSacredDomain': {
       const data = await chrome.storage.local.get('sacredDomains');
       const domains = data.sacredDomains || [];
-      const domain = message.domain.replace('www.', '').toLowerCase().trim();
+      let domain = message.domain.toLowerCase().trim();
+      domain = domain.replace(/^https?:\/\//, '');
+      domain = domain.replace(/^www\./, '');
+      domain = domain.replace(/[\/\?#].*$/, '');
+      domain = domain.replace(/\.+$/, '');
       if (domain && !domains.includes(domain)) {
         domains.push(domain);
         await chrome.storage.local.set({ sacredDomains: domains });
@@ -897,3 +915,8 @@ async function handleMessage(message) {
 
 // Periodically update badge
 setInterval(updateBadge, 30000); // every 30 seconds
+
+// Open side panel when user clicks the extension icon
+chrome.action.onClicked.addListener(async (tab) => {
+  await chrome.sidePanel.open({ windowId: tab.windowId });
+});

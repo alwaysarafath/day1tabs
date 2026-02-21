@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>day1tabs</title>
+  <link rel="stylesheet" href="../css/panel.css">
+</head>
+<body>
+  <div class="panel">
+
+    <!-- Header -->
+    <div class="panel-header">
+      <div class="brand">
+        <span class="brand-icon">&#x25D0;</span>
+        <span class="brand-name">day1tabs</span>
+      </div>
+      <div class="auto-close-toggle" id="resetToggle" title="Toggle auto-close">
+        <div class="toggle-track" id="resetToggleTrack">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auto-close + manual action -->
+    <div class="action-block">
+      <div class="next-close-text" id="nextCloseText"></div>
+      <div class="action-or">or</div>
+      <button class="close-now-btn" id="freshStartBtn">Close unused tabs</button>
+    </div>
+
+    <!-- Settings (collapsible, collapsed by default) -->
+    <div class="settings-section">
+      <div class="settings-header" id="settingsToggle">
+        <span>Settings</span>
+        <span class="chevron" id="settingsChevron">&#x203A;</span>
+      </div>
+      <div class="settings-panel" id="settingsPanel" style="display: none;">
+
+        <!-- Close time picker -->
+        <div class="setting-row">
+          <label>Tabs auto-close at</label>
+          <div class="time-picker-group">
+            <div class="time-picker">
+              <select id="resetHourDisplay"></select>
+              <span class="time-sep">:</span>
+              <select id="resetMinute"></select>
+              <select id="resetAmPm">
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
+            </div>
+            <span class="time-tz" id="timeTz"></span>
+          </div>
+        </div>
+        <input type="hidden" id="resetHour" value="0">
+
+        <div class="setting-divider"></div>
+
+        <!-- Never-close domains -->
+        <div class="neverclose-section">
+          <div class="neverclose-header" id="nevercloseToggle">
+            <span class="neverclose-label">Never close</span>
+            <span class="neverclose-count" id="nevercloseCount">0 domains</span>
+            <span class="chevron" id="nevercloseChevron">&#x203A;</span>
+          </div>
+          <div class="neverclose-panel" id="neverclosePanel" style="display: none;">
+            <div class="neverclose-hint">Tabs from these domains stay open when tabs are closed.</div>
+            <div class="neverclose-domains" id="nevercloseDomains"></div>
+            <div class="neverclose-add">
+              <input type="text" id="nevercloseInput" placeholder="domain.com" spellcheck="false">
+              <button class="neverclose-add-btn" id="nevercloseAddBtn">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <!-- Duplicate auto-close -->
+        <div class="setting-row">
+          <label>Auto-close duplicate tabs</label>
+          <div class="mini-toggle" id="dupToggle">
+            <div class="toggle-track" id="dupToggleTrack">
+              <div class="toggle-thumb"></div>
+            </div>
+          </div>
+        </div>
+        <div class="setting-row dup-delay-row" id="dupDelayRow" style="display: none;">
+          <label>Close after</label>
+          <select id="dupDelaySelect" class="dup-delay-select">
+            <option value="5">5 min</option>
+            <option value="10">10 min</option>
+            <option value="30">30 min</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="section-divider"></div>
+
+    <!-- Archive Section -->
+    <div class="archive-section" id="archiveSection">
+
+      <!-- Empty state -->
+      <div class="archive-empty" id="archiveEmpty">
+        <p>No closed tabs yet.</p>
+        <p style="margin-top: 2px;">Your first auto-close is tonight.</p>
+      </div>
+
+      <!-- Post-reset content -->
+      <div class="archive-content" id="archiveContent" style="display: none;">
+
+        <!-- Single summary line -->
+        <div class="archive-summary" id="archiveSummary"></div>
+
+        <!-- Used group -->
+        <div class="tab-group collapsed" id="groupUsed">
+          <div class="group-header" data-group="used">
+            <div class="group-title">
+              <span class="group-chevron">&#x25B8;</span>
+              <span class="group-dot used"></span>
+              <span class="group-name">Used</span>
+              <span class="group-count" id="usedCount">0</span>
+              <span class="group-info">(i)
+                <span class="info-tooltip">Tabs are classified as "Used" if you came back to them more than once or spent over a minute on them. Everything else is "Didn't use."</span>
+              </span>
+            </div>
+            <button class="group-reopen-btn" data-reopen="used">Reopen all</button>
+          </div>
+          <div class="group-body">
+            <div class="tab-list" id="usedList"></div>
+          </div>
+        </div>
+
+        <!-- Didn't use group -->
+        <div class="tab-group collapsed" id="groupDidntUse">
+          <div class="group-header" data-group="didntUse">
+            <div class="group-title">
+              <span class="group-chevron">&#x25B8;</span>
+              <span class="group-dot didnt-use"></span>
+              <span class="group-name">Didn't use</span>
+              <span class="group-count" id="didntUseCount">0</span>
+              <span class="group-info">(i)
+                <span class="info-tooltip">Tabs are classified as "Used" if you came back to them more than once or spent over a minute on them. Everything else is "Didn't use."</span>
+              </span>
+            </div>
+            <button class="group-reopen-btn" data-reopen="didntUse">Reopen all</button>
+          </div>
+          <div class="group-body">
+            <div class="tab-list" id="didntUseList"></div>
+          </div>
+        </div>
+
+        <!-- Reopen everything link (below sections) -->
+        <div class="reopen-all-wrap" id="reopenAllWrap" style="display: none;">
+          <a class="reopen-all-link" id="reopenAllBtn">Reopen everything</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="section-divider"></div>
+
+    <!-- Footer -->
+    <div class="panel-footer">
+      <div class="footer-line1" id="footerRam"></div>
+      <div class="footer-line1">day1tabs is free forever. If it helped, a coffee means a lot</div>
+      <div class="footer-line2">
+        <a class="coffee-link" href="https://buymeacoffee.com/alwaysarafath" target="_blank">Buy me a coffee</a>
+        <span>&middot;</span>
+        <a href="https://day1tabs.com" target="_blank">day1tabs.com</a>
+        <span>&middot;</span>
+        <span id="footerVersion"></span>
+      </div>
+    </div>
+
+  </div>
+  <script src="../js/panel.js"></script>
+</body>
+</html>

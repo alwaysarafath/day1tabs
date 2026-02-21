@@ -66,7 +66,11 @@ function setupSacredDomains() {
   const addBtn = document.getElementById('addCustomBtn');
 
   const addCustom = async () => {
-    const domain = input.value.trim().replace('www.', '').toLowerCase();
+    let domain = input.value.trim().toLowerCase();
+    domain = domain.replace(/^https?:\/\//, '');
+    domain = domain.replace(/^www\./, '');
+    domain = domain.replace(/[\/\?#].*$/, '');
+    domain = domain.replace(/\.+$/, '');
     if (domain && !sacredDomains.includes(domain)) {
       await addSacredDomain(domain);
       renderSacredList();
@@ -88,7 +92,11 @@ function setupSacredDomains() {
 }
 
 async function addSacredDomain(domain) {
-  domain = domain.replace('www.', '').toLowerCase().trim();
+  domain = domain.toLowerCase().trim();
+  domain = domain.replace(/^https?:\/\//, '');
+  domain = domain.replace(/^www\./, '');
+  domain = domain.replace(/[\/\?#].*$/, '');
+  domain = domain.replace(/\.+$/, '');
   if (!sacredDomains.includes(domain)) {
     sacredDomains.push(domain);
     await chrome.runtime.sendMessage({ action: 'addSacredDomain', domain });
@@ -133,7 +141,7 @@ function renderSacredList() {
 function updateSummary() {
   const summary = document.getElementById('sacredSummary');
   if (sacredDomains.length === 0) {
-    summary.innerHTML = 'No never-close domains set — <em>all tabs will reset</em>';
+    summary.innerHTML = 'No never-close domains set — <em>all tabs will close</em>';
   } else {
     summary.innerHTML = `<strong>${sacredDomains.length}</strong> domain${sacredDomains.length !== 1 ? 's' : ''} will never be closed`;
   }
