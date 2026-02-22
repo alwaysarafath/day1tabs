@@ -170,11 +170,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   if (currentActiveTabId === tabId) {
     stopFocusTracking();
   }
-  // Clear any duplicate timer for this tab
-  if (duplicateTimers[tabId]) {
-    clearTimeout(duplicateTimers[tabId]);
-    delete duplicateTimers[tabId];
-  }
+  // Clear any duplicate alarm for this tab
+  chrome.alarms.clear(`dup-close-${tabId}`);
   // Don't delete from tracker - we need this data for classification
   updateBadge();
 });
@@ -291,6 +288,17 @@ async function scheduleResetAlarm() {
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'day1tabs-reset') {
     await executeReset('auto');
+  } else if (alarm.name.startsWith('dup-close-')) {
+    const tabId = parseInt(alarm.name.replace('dup-close-', ''));
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      if (tab.pinned) return;
+      await logDuplicateClosure(tab);
+      await chrome.tabs.remove(tabId);
+      console.log(`[day1tabs] Closed duplicate tab ${tabId}: ${tab.url}`);
+    } catch (e) {
+      // Tab may already be closed
+    }
   }
 });
 
@@ -586,23 +594,25 @@ function isDomainMatch(tabHostname, storedDomain) {
 
 // ============================================================
 // DUPLICATE TAB AUTO-CLOSE
+// Uses chrome.alarms instead of setTimeout so timers survive
+// service worker termination in MV3.
+// Alarm names: "dup-close-{tabId}"
 // ============================================================
 
-// Timers for duplicate tabs: { [tabId]: timeoutId }
-let duplicateTimers = {};
-
-function clearAllDuplicateTimers() {
-  for (const tabId of Object.keys(duplicateTimers)) {
-    clearTimeout(duplicateTimers[tabId]);
+async function clearAllDuplicateTimers() {
+  const allAlarms = await chrome.alarms.getAll();
+  for (const alarm of allAlarms) {
+    if (alarm.name.startsWith('dup-close-')) {
+      await chrome.alarms.clear(alarm.name);
+    }
   }
-  duplicateTimers = {};
 }
 
 async function checkForDuplicates(triggeredByTabId) {
   const data = await chrome.storage.local.get(['duplicateAutoClose', 'duplicateAutoCloseMinutes', 'sacredDomains']);
   if (!data.duplicateAutoClose) return;
 
-  const delayMs = (data.duplicateAutoCloseMinutes || 10) * 60 * 1000;
+  const delayMinutes = data.duplicateAutoCloseMinutes || 10;
   const sacredDomains = data.sacredDomains || [];
 
   let triggerTab;
@@ -626,10 +636,8 @@ async function checkForDuplicates(triggeredByTabId) {
   const sameUrlTabs = allTabs.filter(t => t.url === triggerTab.url);
 
   if (sameUrlTabs.length < 2) {
-    if (duplicateTimers[triggeredByTabId]) {
-      clearTimeout(duplicateTimers[triggeredByTabId]);
-      delete duplicateTimers[triggeredByTabId];
-    }
+    // No longer a duplicate — cancel any pending alarm for this tab
+    await chrome.alarms.clear(`dup-close-${triggeredByTabId}`);
     return;
   }
 
@@ -640,28 +648,18 @@ async function checkForDuplicates(triggeredByTabId) {
   const focusedDup = sameUrlTabs.find(t => t.id === focusedId);
   const keepTabId = focusedDup ? focusedDup.id : triggeredByTabId;
 
-  // Cancel timer on the tab we're keeping
-  if (duplicateTimers[keepTabId]) {
-    clearTimeout(duplicateTimers[keepTabId]);
-    delete duplicateTimers[keepTabId];
-  }
+  // Cancel alarm on the tab we're keeping
+  await chrome.alarms.clear(`dup-close-${keepTabId}`);
 
-  // Start timers on all other copies
+  // Schedule alarms for all other copies
   for (const dup of sameUrlTabs) {
     if (dup.id === keepTabId) continue;
-    if (duplicateTimers[dup.id]) continue;
 
-    duplicateTimers[dup.id] = setTimeout(async () => {
-      delete duplicateTimers[dup.id];
-      try {
-        const tabToClose = await chrome.tabs.get(dup.id);
-        if (tabToClose.pinned) return; // Never close pinned tabs
-        await logDuplicateClosure(tabToClose);
-        await chrome.tabs.remove(dup.id);
-      } catch (e) {
-        // Tab may already be closed
-      }
-    }, delayMs);
+    const alarmName = `dup-close-${dup.id}`;
+    const existing = await chrome.alarms.get(alarmName);
+    if (existing) continue; // already scheduled
+
+    chrome.alarms.create(alarmName, { delayInMinutes: delayMinutes });
   }
 }
 
