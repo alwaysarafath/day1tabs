@@ -281,13 +281,6 @@ function renderArchive(archiveResult, status) {
   const timeStr = formatResetTime(archiveData.timestamp);
   summaryEl.textContent = `${total} tab${total !== 1 ? 's' : ''} closed \u00b7 ${timeStr}`;
 
-  // Reopen everything link
-  if (status.undoAvailable) {
-    document.getElementById('reopenAllWrap').style.display = 'block';
-  } else {
-    document.getElementById('reopenAllWrap').style.display = 'none';
-  }
-
   // Split into two categories
   const used = archiveData.tabs.filter(t => t.classification === 'workhorse');
   const didntUse = archiveData.tabs.filter(t => t.classification !== 'workhorse');
@@ -297,6 +290,14 @@ function renderArchive(archiveResult, status) {
 
   renderTabList('usedList', used);
   renderTabList('didntUseList', didntUse);
+
+  // Hide reopen buttons when nothing left to reopen
+  updateGroupReopenBtn('used', used);
+  updateGroupReopenBtn('didntUse', didntUse);
+
+  const allTabs = archiveData.tabs;
+  const anyToReopen = allTabs.some(t => !t.reopened);
+  document.getElementById('reopenAllWrap').style.display = anyToReopen ? 'block' : 'none';
 
   // Footer RAM estimate
   const nonReopened = archiveData.tabs.filter(t => !t.reopened).length;
@@ -330,6 +331,19 @@ function formatResetTime(timestamp) {
     weekday: 'short', month: 'short', day: 'numeric',
     hour: 'numeric', minute: '2-digit', hour12: true
   });
+}
+
+function updateGroupReopenBtn(group, tabs) {
+  const btn = document.querySelector(`.group-reopen-btn[data-reopen="${group}"]`);
+  if (!btn) return;
+
+  const unopened = tabs.filter(t => !t.reopened);
+
+  if (tabs.length === 0 || unopened.length === 0) {
+    btn.style.display = 'none';
+  } else {
+    btn.style.display = '';
+  }
 }
 
 function renderTabList(containerId, tabs) {
