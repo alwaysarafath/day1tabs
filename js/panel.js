@@ -7,8 +7,16 @@ document.addEventListener('DOMContentLoaded', init);
 
 let currentStatus = null;
 let currentArchive = null;
+let isTabView = false;
 
 async function init() {
+  // When opened as a tab (scheduled close), center the content
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('source') === 'auto') {
+    document.body.classList.add('tab-view');
+    isTabView = true;
+  }
+
   currentStatus = await sendMessage({ action: 'getStatus' });
   const archiveResult = await sendMessage({ action: 'getArchive' });
   currentArchive = archiveResult;
@@ -16,6 +24,61 @@ async function init() {
   renderNextClose(currentStatus);
   setupSettings(currentStatus);
   renderArchive(archiveResult, currentStatus);
+
+  // Tab-view customizations (scheduled close only)
+  if (isTabView) {
+    // Expand tab groups by default
+    document.getElementById('groupUsed').classList.remove('collapsed');
+    document.getElementById('groupDidntUse').classList.remove('collapsed');
+
+    // Move archive summary to top (after header, before action block)
+    const summary = document.getElementById('archiveSummary');
+    const actionBlock = document.querySelector('.action-block');
+    if (summary && actionBlock) {
+      actionBlock.parentNode.insertBefore(summary, actionBlock);
+      summary.classList.add('tab-view-summary');
+    }
+
+    // Hide "or" and "Close tabs now" button
+    const orText = document.querySelector('.action-or');
+    const closeBtn = document.getElementById('freshStartBtn');
+    if (orText) orText.style.display = 'none';
+    if (closeBtn) closeBtn.style.display = 'none';
+
+    // Inject Review + Share buttons before footer
+    const didntUseCount = currentArchive?.archive?.[0]?.tabs?.filter(t => t.classification !== 'workhorse').length || 0;
+
+    const ctaWrap = document.createElement('div');
+    ctaWrap.className = 'tab-view-cta';
+    ctaWrap.innerHTML = `
+      <a class="cta-card" href="https://chromewebstore.google.com/detail/day1tabs/iaklgpbfkohkghhmjjdfeiekemnnkklp" target="_blank">
+        <svg class="cta-icon" viewBox="0 0 48 48" width="28" height="28"><circle cx="24" cy="24" r="22" fill="#fff"/><path d="M24 2A22 22 0 0 0 5.3 34.1l9.3-16.1a9.9 9.9 0 0 1 8.5-5h19A22 22 0 0 0 24 2z" fill="#DB4437"/><path d="M42.1 13H23.2a10 10 0 0 1 9.4 14.1L23.2 43.2A22 22 0 0 0 42.1 13z" fill="#FBBC05"/><path d="M23.2 43.2l9.3-16.1a10 10 0 0 1-18.1-.9L5.3 34.1A22 22 0 0 0 23.2 43.2z" fill="#4CAF50"/><circle cx="24" cy="24" r="8" fill="#4285F4"/><circle cx="24" cy="24" r="5" fill="#fff"/></svg>
+        <span class="cta-label">Review</span>
+      </a>
+      <button class="cta-card" id="shareBtn">
+        <svg class="cta-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        <span class="cta-label">Share</span>
+      </button>
+    `;
+
+    const footer = document.querySelector('.panel-footer');
+    footer.parentNode.insertBefore(ctaWrap, footer);
+
+    document.getElementById('shareBtn').addEventListener('click', async () => {
+      const shareText = `Hi, I am using day1Tabs to clear my clutter daily and it closed ${didntUseCount} tab${didntUseCount !== 1 ? 's' : ''} yesterday that I didn't use automatically. Give it a try!\n\nChrome Web Store: https://chromewebstore.google.com/detail/day1tabs/iaklgpbfkohkghhmjjdfeiekemnnkklp\nWebsite: https://day1tabs.com/`;
+      if (navigator.share) {
+        try {
+          await navigator.share({ text: shareText });
+        } catch (e) {
+          // User cancelled or share failed — ignore
+        }
+      } else {
+        await navigator.clipboard.writeText(shareText);
+        showToast('Copied to clipboard');
+      }
+    });
+  }
+
   setupEventListeners(currentStatus);
 
   // Footer version from manifest
@@ -32,7 +95,9 @@ function renderNextClose(status) {
   const resetTime = new Date(status.nextReset);
   const h = resetTime.getHours();
   const m = resetTime.getMinutes();
-  el.textContent = `Tabs auto-close at ${formatTime(h, m)}`;
+  el.textContent = isTabView
+    ? `Next auto-close at ${formatTime(h, m)}`
+    : `Tabs auto-close at ${formatTime(h, m)}`;
 
   // Auto-close toggle
   const track = document.getElementById('resetToggleTrack');

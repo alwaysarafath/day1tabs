@@ -466,16 +466,25 @@ async function executeReset(source) {
   await initializeExistingTabs();
   await updateBadge();
 
-  // Open side panel after reset
+  // Show results after reset
   if (tabsToClose.length > 0) {
     await chrome.storage.local.set({ lastResetSource: source });
     try {
-      const [focusedWindow] = await chrome.windows.getAll({ windowTypes: ['normal'] });
-      if (focusedWindow) {
-        await chrome.sidePanel.open({ windowId: focusedWindow.id });
+      if (source === 'auto') {
+        // Scheduled close: open as a new tab so the user notices
+        await chrome.tabs.create({
+          url: chrome.runtime.getURL('pages/panel.html?source=auto'),
+          active: true
+        });
+      } else {
+        // Manual close: open side panel as before
+        const [focusedWindow] = await chrome.windows.getAll({ windowTypes: ['normal'] });
+        if (focusedWindow) {
+          await chrome.sidePanel.open({ windowId: focusedWindow.id });
+        }
       }
     } catch (e) {
-      console.log('[day1tabs] Could not open side panel after reset:', e);
+      console.log('[day1tabs] Could not open panel after reset:', e);
     }
   }
 

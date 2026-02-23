@@ -41,6 +41,61 @@ body {
   overflow-y: auto;
 }
 
+/* Center content when opened as a full tab (scheduled close) */
+body.tab-view {
+  margin: 0 auto;
+}
+
+/* Tab-view summary moved to top */
+.tab-view-summary {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+/* Tab-view CTA buttons (before footer) */
+.tab-view-cta {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 16px 0;
+}
+
+.cta-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 90px;
+  height: 90px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  font-family: inherit;
+  padding: 0;
+}
+
+.cta-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.cta-icon {
+  flex-shrink: 0;
+}
+
+.cta-label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .panel {
   padding: 16px 16px 12px;
   display: flex;
