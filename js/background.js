@@ -319,7 +319,12 @@ async function executeReset(source) {
 
   const sacredDomains = data.sacredDomains || [];
   const allTabs = await chrome.tabs.query({});
-  console.log(`[day1tabs] Total tabs found: ${allTabs.length}, sacred domains: ${sacredDomains.join(', ')}`);
+
+  // Get active (focused) tab in every window — never close these
+  const activeTabs = await chrome.tabs.query({ active: true });
+  const activeTabIds = new Set(activeTabs.map(t => t.id));
+
+  console.log(`[day1tabs] Total tabs found: ${allTabs.length}, sacred domains: ${sacredDomains.join(', ')}, active tabs: ${activeTabIds.size}`);
 
   const tabsToClose = [];
   const tabsToKeep = [];
@@ -333,6 +338,12 @@ async function executeReset(source) {
       } else {
         tabsToKeep.push(tab);
       }
+      continue;
+    }
+
+    // Skip the currently active/focused tab in each window
+    if (activeTabIds.has(tab.id)) {
+      tabsToKeep.push(tab);
       continue;
     }
 
