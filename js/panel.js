@@ -88,6 +88,15 @@ async function init() {
 
 function renderNextClose(status) {
   const el = document.getElementById('nextCloseText');
+
+  // Auto-close toggle
+  const track = document.getElementById('resetToggleTrack');
+  if (status.resetEnabled) {
+    track.classList.add('active');
+  } else {
+    track.classList.remove('active');
+  }
+
   if (!status.resetEnabled) {
     el.textContent = 'Auto-close is paused';
     return;
@@ -98,14 +107,6 @@ function renderNextClose(status) {
   el.textContent = isTabView
     ? `Next auto-close at ${formatTime(h, m)}`
     : `Tabs auto-close at ${formatTime(h, m)}`;
-
-  // Auto-close toggle
-  const track = document.getElementById('resetToggleTrack');
-  if (status.resetEnabled) {
-    track.classList.add('active');
-  } else {
-    track.classList.remove('active');
-  }
 }
 
 // ============================================================
