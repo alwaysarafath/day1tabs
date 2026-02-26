@@ -122,14 +122,17 @@ function setupSettings(status) {
   // Duplicate settings
   const dupTrack = document.getElementById('dupToggleTrack');
   const dupDelayRow = document.getElementById('dupDelayRow');
+  const dupHint = document.getElementById('dupHint');
   const dupDelaySelect = document.getElementById('dupDelaySelect');
 
   if (status.duplicateAutoClose) {
     dupTrack.classList.add('active');
     dupDelayRow.style.display = 'flex';
+    dupHint.style.display = 'block';
   } else {
     dupTrack.classList.remove('active');
     dupDelayRow.style.display = 'none';
+    dupHint.style.display = 'none';
   }
   dupDelaySelect.value = status.duplicateAutoCloseMinutes || 10;
 

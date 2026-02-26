@@ -504,6 +504,13 @@ body {
   transform: translateX(14px);
 }
 
+.dup-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
 .dup-delay-row {
   margin-top: 8px;
 }
