@@ -21,6 +21,11 @@ let tabTracker = {};
 let currentActiveTabId = null;
 let currentActiveStart = null;
 let trackingActive = true;
+let duplicateDetectionEnabled = false; // cached from storage, synced on init + settings change
+
+// Debounce timers for onUpdated (keyed by tabId)
+const updateTimers = {};
+const UPDATE_DEBOUNCE_MS = 500;
 
 // ============================================================
 // INITIALIZATION
@@ -45,6 +50,10 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     chrome.tabs.create({ url: chrome.runtime.getURL('pages/onboarding.html') });
   }
 
+  // Sync cached settings
+  const cachedData = await chrome.storage.local.get('duplicateAutoClose');
+  duplicateDetectionEnabled = !!cachedData.duplicateAutoClose;
+
   // Initialize tracking for existing tabs
   await initializeExistingTabs();
 
@@ -56,6 +65,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  const cachedData = await chrome.storage.local.get('duplicateAutoClose');
+  duplicateDetectionEnabled = !!cachedData.duplicateAutoClose;
   await initializeExistingTabs();
   await scheduleResetAlarm();
   await updateBadge();
@@ -115,11 +126,27 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   checkForDuplicates(tabId);
 });
 
-// When a tab's URL changes (navigation)
+// When a tab's URL or load status changes
+// Debounced: page loads fire 3-4 updates (URL, title, favicon, status).
+// We only process URL changes immediately and batch the rest at 'complete'.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!trackingActive) return;
 
-  if (changeInfo.url || changeInfo.title) {
+  // Only care about URL changes and load completion
+  const hasUrl = !!changeInfo.url;
+  const isComplete = changeInfo.status === 'complete';
+  if (!hasUrl && !isComplete) return;
+
+  // Clear any pending debounce for this tab
+  if (updateTimers[tabId]) {
+    clearTimeout(updateTimers[tabId]);
+    delete updateTimers[tabId];
+  }
+
+  // Process after debounce so rapid-fire updates collapse into one
+  updateTimers[tabId] = setTimeout(() => {
+    delete updateTimers[tabId];
+
     if (tab.url && !isInternalUrl(tab.url)) {
       if (!tabTracker[tabId]) {
         tabTracker[tabId] = {
@@ -132,37 +159,24 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
           createdAt: Date.now()
         };
       } else {
-        // Update URL and title if changed
         tabTracker[tabId].url = tab.url;
         tabTracker[tabId].title = tab.title || tabTracker[tabId].title;
         tabTracker[tabId].favIconUrl = tab.favIconUrl || tabTracker[tabId].favIconUrl;
       }
     }
 
-    // Update badge whenever a tab's URL changes (new tab navigated, etc.)
-    if (changeInfo.url) {
-      updateBadge();
-      checkForDuplicates(tabId);
-    }
-  }
+    if (hasUrl) updateBadge();
+
+    // Only check duplicates once the page has fully loaded
+    if (isComplete) checkForDuplicates(tabId);
+  }, UPDATE_DEBOUNCE_MS);
 });
 
 // When a tab is created
 chrome.tabs.onCreated.addListener((tab) => {
   if (!trackingActive) return;
   updateBadge();
-
-  // Check for duplicates after a short delay (URL may not be set yet)
-  setTimeout(async () => {
-    try {
-      const updated = await chrome.tabs.get(tab.id);
-      if (updated.url && !isInternalUrl(updated.url)) {
-        checkForDuplicates(tab.id);
-      }
-    } catch (e) {
-      // Tab may have been closed already
-    }
-  }, 1000);
+  // Duplicate check happens in onUpdated when status === 'complete'
 });
 
 // When a tab is closed
@@ -629,8 +643,9 @@ async function clearAllDuplicateTimers() {
 }
 
 async function checkForDuplicates(triggeredByTabId) {
-  const data = await chrome.storage.local.get(['duplicateAutoClose', 'duplicateAutoCloseMinutes', 'sacredDomains']);
-  if (!data.duplicateAutoClose) return;
+  if (!duplicateDetectionEnabled) return;
+
+  const data = await chrome.storage.local.get(['duplicateAutoCloseMinutes', 'sacredDomains']);
 
   const delayMinutes = data.duplicateAutoCloseMinutes || 10;
   const sacredDomains = data.sacredDomains || [];
@@ -870,6 +885,11 @@ async function handleMessage(message) {
         await scheduleResetAlarm();
       }
 
+      // Sync cached duplicate setting
+      if (updates.duplicateAutoClose !== undefined) {
+        duplicateDetectionEnabled = !!updates.duplicateAutoClose;
+      }
+
       // Clear duplicate timers if feature disabled
       if (updates.duplicateAutoClose === false) {
         clearAllDuplicateTimers();
@@ -929,9 +949,6 @@ async function handleMessage(message) {
       return { error: 'Unknown action' };
   }
 }
-
-// Periodically update badge
-setInterval(updateBadge, 30000); // every 30 seconds
 
 // Open side panel when user clicks the extension icon
 chrome.action.onClicked.addListener(async (tab) => {
