@@ -2,8 +2,10 @@
   "name": "day1tabs",
   "private": true,
   "scripts": {
-    "test": "jest",
-    "test:coverage": "jest --coverage"
+    "test": "jest tests/background.test.js tests/panel.test.js",
+    "test:coverage": "jest --coverage",
+    "test:perf": "jest tests/performance.test.js",
+    "prerelease": "npm test && npm run test:perf"
   },
   "devDependencies": {
     "jest": "^29.7.0",
