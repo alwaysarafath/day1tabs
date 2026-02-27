@@ -17,13 +17,17 @@ async function init() {
     isTabView = true;
   }
 
-  currentStatus = await sendMessage({ action: 'getStatus' });
-  const archiveResult = await sendMessage({ action: 'getArchive' });
+  const [statusResult, archiveResult] = await Promise.all([
+    sendMessage({ action: 'getStatus' }),
+    sendMessage({ action: 'getArchive' })
+  ]);
+  currentStatus = statusResult;
   currentArchive = archiveResult;
 
-  renderNextClose(currentStatus);
-  setupSettings(currentStatus);
-  renderArchive(archiveResult, currentStatus);
+  renderNextClose(statusResult);
+  setupSettings(statusResult);
+  setupDomainDelegation();
+  renderArchive(archiveResult, statusResult);
 
   // Tab-view customizations (scheduled close only)
   if (isTabView) {
@@ -146,7 +150,7 @@ function renderNeverCloseDomains(domains) {
 
   countEl.textContent = `${domains.length} domain${domains.length !== 1 ? 's' : ''}`;
 
-  container.innerHTML = '';
+  const frag = document.createDocumentFragment();
   domains.forEach(domain => {
     const chip = document.createElement('div');
     chip.className = 'neverclose-chip';
@@ -154,16 +158,20 @@ function renderNeverCloseDomains(domains) {
       <span>${escapeHtml(domain)}</span>
       <span class="remove" data-domain="${escapeAttr(domain)}">×</span>
     `;
-    container.appendChild(chip);
+    frag.appendChild(chip);
   });
+  container.innerHTML = '';
+  container.appendChild(frag);
+}
 
-  // Remove listeners
-  container.querySelectorAll('.remove').forEach(el => {
-    el.addEventListener('click', async (e) => {
-      const domain = e.target.dataset.domain;
-      const result = await sendMessage({ action: 'removeSacredDomain', domain });
-      renderNeverCloseDomains(result.sacredDomains);
-    });
+// Set up once — delegated listener for domain chip removal
+function setupDomainDelegation() {
+  document.getElementById('nevercloseDomains').addEventListener('click', async (e) => {
+    const removeBtn = e.target.closest('.remove');
+    if (!removeBtn) return;
+    const domain = removeBtn.dataset.domain;
+    const result = await sendMessage({ action: 'removeSacredDomain', domain });
+    renderNeverCloseDomains(result.sacredDomains);
   });
 }
 
@@ -188,9 +196,12 @@ function setupEventListeners(status) {
       'Tabs from your never-close domains and pinned tabs will stay open. You can reopen anything you need afterwards.',
       async () => {
         await sendMessage({ action: 'manualReset' });
-        // Refresh everything with fresh data
-        currentStatus = await sendMessage({ action: 'getStatus' });
-        const archiveResult = await sendMessage({ action: 'getArchive' });
+        // Refresh everything with fresh data (parallel)
+        const [status, archiveResult] = await Promise.all([
+          sendMessage({ action: 'getStatus' }),
+          sendMessage({ action: 'getArchive' })
+        ]);
+        currentStatus = status;
         currentArchive = archiveResult;
         renderNextClose(currentStatus);
         renderArchive(archiveResult, currentStatus);
@@ -274,8 +285,11 @@ function setupEventListeners(status) {
     const result = await sendMessage({ action: 'undo' });
     if (result.success) {
       showToast(`Reopened ${result.count} tabs`);
-      currentStatus = await sendMessage({ action: 'getStatus' });
-      const archiveResult = await sendMessage({ action: 'getArchive' });
+      const [status, archiveResult] = await Promise.all([
+        sendMessage({ action: 'getStatus' }),
+        sendMessage({ action: 'getArchive' })
+      ]);
+      currentStatus = status;
       currentArchive = archiveResult;
       renderNextClose(currentStatus);
       renderArchive(archiveResult, currentStatus);
@@ -306,8 +320,11 @@ function setupEventListeners(status) {
       const result = await sendMessage({ action: 'reopenTabs', urls });
       if (result.success) {
         showToast(`Reopened ${urls.length} tabs`);
-        currentStatus = await sendMessage({ action: 'getStatus' });
-        const archiveResult = await sendMessage({ action: 'getArchive' });
+        const [status, archiveResult] = await Promise.all([
+          sendMessage({ action: 'getStatus' }),
+          sendMessage({ action: 'getArchive' })
+        ]);
+        currentStatus = status;
         currentArchive = archiveResult;
         renderNextClose(currentStatus);
         renderArchive(archiveResult, currentStatus);
@@ -321,6 +338,35 @@ function setupEventListeners(status) {
       if (e.target.closest('.group-reopen-btn')) return;
       const group = header.closest('.tab-group');
       group.classList.toggle('collapsed');
+    });
+  });
+
+  // Delegated click handler for individual tab reopen buttons
+  document.querySelectorAll('.tab-list').forEach(list => {
+    list.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.tab-reopen-btn');
+      if (!btn || btn.classList.contains('reopened')) return;
+      e.stopPropagation();
+
+      const url = btn.dataset.url;
+      const result = await sendMessage({ action: 'reopenTabs', urls: [url] });
+      if (result.success) {
+        // Update button in-place — no full re-render needed
+        btn.textContent = 'Opened';
+        btn.classList.add('reopened');
+
+        // Lightweight data refresh (parallel)
+        const [status, archiveResult] = await Promise.all([
+          sendMessage({ action: 'getStatus' }),
+          sendMessage({ action: 'getArchive' })
+        ]);
+        currentStatus = status;
+        currentArchive = archiveResult;
+
+        // Only update counters, reopen buttons, and footer — skip full DOM rebuild
+        updateArchiveChrome(archiveResult, currentStatus);
+        renderNextClose(currentStatus);
+      }
     });
   });
 }
@@ -361,6 +407,33 @@ function renderArchive(archiveResult, status) {
   renderTabList('didntUseList', didntUse);
 
   // Hide reopen buttons when nothing left to reopen
+  updateGroupReopenBtn('used', used);
+  updateGroupReopenBtn('didntUse', didntUse);
+
+  const allTabs = archiveData.tabs;
+  const anyToReopen = allTabs.some(t => !t.reopened);
+  document.getElementById('reopenAllWrap').style.display = anyToReopen ? 'block' : 'none';
+
+  // Footer RAM estimate
+  const nonReopened = archiveData.tabs.filter(t => !t.reopened).length;
+  const ramMB = nonReopened * 100;
+  if (ramMB > 0) {
+    const ramStr = ramMB >= 1000 ? `~${(ramMB / 1000).toFixed(1)} GB freed` : `~${ramMB} MB freed`;
+    document.getElementById('footerRam').textContent = `Estimated ${ramStr}`;
+  } else {
+    document.getElementById('footerRam').textContent = '';
+  }
+}
+
+// Lightweight update: refresh counters, reopen buttons, and footer without rebuilding tab DOM
+function updateArchiveChrome(archiveResult, status) {
+  const archive = archiveResult.archive || [];
+  if (archive.length === 0 || !archive[0]) return;
+
+  const archiveData = archive[0];
+  const used = archiveData.tabs.filter(t => t.classification === 'workhorse');
+  const didntUse = archiveData.tabs.filter(t => t.classification !== 'workhorse');
+
   updateGroupReopenBtn('used', used);
   updateGroupReopenBtn('didntUse', didntUse);
 
@@ -424,7 +497,10 @@ function renderTabList(containerId, tabs) {
     return;
   }
 
-  tabs.forEach((tab, index) => {
+  // Use DocumentFragment to batch DOM insertions
+  const frag = document.createDocumentFragment();
+
+  tabs.forEach((tab) => {
     const item = document.createElement('div');
     item.className = 'tab-item';
 
@@ -432,7 +508,7 @@ function renderTabList(containerId, tabs) {
     const firstLetter = (tab.title || domain || '?')[0];
 
     const faviconHtml = tab.favIconUrl
-      ? `<img src="${escapeAttr(tab.favIconUrl)}" alt="" onerror="this.style.display='none';this.parentElement.querySelector('.placeholder').style.display='flex'">`
+      ? `<img src="${escapeAttr(tab.favIconUrl)}" alt="" loading="lazy" onerror="this.style.display='none';this.parentElement.querySelector('.placeholder').style.display='flex'">`
       : '';
 
     const reopenedClass = tab.reopened ? ' reopened' : '';
@@ -450,29 +526,10 @@ function renderTabList(containerId, tabs) {
       <button class="tab-reopen-btn${reopenedClass}" data-url="${escapeAttr(tab.url)}">${reopenLabel}</button>
     `;
 
-    // Individual reopen
-    const btn = item.querySelector('.tab-reopen-btn');
-    if (!tab.reopened) {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const url = btn.dataset.url;
-        const result = await sendMessage({ action: 'reopenTabs', urls: [url] });
-        if (result.success) {
-          btn.textContent = 'Opened';
-          btn.classList.add('reopened');
-          // Refresh data
-          currentStatus = await sendMessage({ action: 'getStatus' });
-          const archiveResult = await sendMessage({ action: 'getArchive' });
-          currentArchive = archiveResult;
-          // Update reopen button and footer
-          renderArchive(archiveResult, currentStatus);
-          renderNextClose(currentStatus);
-        }
-      });
-    }
-
-    container.appendChild(item);
+    frag.appendChild(item);
   });
+
+  container.appendChild(frag);
 }
 
 // ============================================================
