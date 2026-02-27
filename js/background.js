@@ -22,10 +22,10 @@ let currentActiveTabId = null;
 let currentActiveStart = null;
 let trackingActive = true;
 let duplicateDetectionEnabled = false; // cached from storage, synced on init + settings change
+let cachedTabCount = 0; // badge tab count — only updated on create/remove, not on navigation
+let cachedSacredDomains = []; // cached from storage, synced on init + settings change
 
-// Debounce timers for onUpdated (keyed by tabId)
-const updateTimers = {};
-const UPDATE_DEBOUNCE_MS = 500;
+// Debounce timer no longer needed — onUpdated is now pure in-memory work
 
 // ============================================================
 // INITIALIZATION
@@ -51,8 +51,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
 
   // Sync cached settings
-  const cachedData = await chrome.storage.local.get('duplicateAutoClose');
+  const cachedData = await chrome.storage.local.get(['duplicateAutoClose', 'sacredDomains']);
   duplicateDetectionEnabled = !!cachedData.duplicateAutoClose;
+  cachedSacredDomains = cachedData.sacredDomains || [];
 
   // Initialize tracking for existing tabs
   await initializeExistingTabs();
@@ -65,8 +66,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 });
 
 chrome.runtime.onStartup.addListener(async () => {
-  const cachedData = await chrome.storage.local.get('duplicateAutoClose');
+  const cachedData = await chrome.storage.local.get(['duplicateAutoClose', 'sacredDomains']);
   duplicateDetectionEnabled = !!cachedData.duplicateAutoClose;
+  cachedSacredDomains = cachedData.sacredDomains || [];
   await initializeExistingTabs();
   await scheduleResetAlarm();
   await updateBadge();
@@ -127,55 +129,50 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 });
 
 // When a tab's URL or load status changes
-// Debounced: page loads fire 3-4 updates (URL, title, favicon, status).
-// We only process URL changes immediately and batch the rest at 'complete'.
+// Hot path: fires 3-4 times per page load. Must be near-zero async work.
+// Tracker updates are pure in-memory. Badge uses cached count (no query).
+// Duplicate check is the only async work, deferred to status=complete only.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!trackingActive) return;
 
-  // Only care about URL changes and load completion
+  // Skip favicon-only and title-only updates — they don't affect tracking
   const hasUrl = !!changeInfo.url;
   const isComplete = changeInfo.status === 'complete';
   if (!hasUrl && !isComplete) return;
 
-  // Clear any pending debounce for this tab
-  if (updateTimers[tabId]) {
-    clearTimeout(updateTimers[tabId]);
-    delete updateTimers[tabId];
+  // Update tracker in memory — zero async work
+  if (tab.url && !isInternalUrl(tab.url)) {
+    if (!tabTracker[tabId]) {
+      tabTracker[tabId] = {
+        url: tab.url,
+        title: tab.title || 'Untitled',
+        favIconUrl: tab.favIconUrl || '',
+        activations: 0,
+        focusTime: 0,
+        lastActivated: null,
+        createdAt: Date.now()
+      };
+    } else {
+      if (hasUrl) tabTracker[tabId].url = tab.url;
+      tabTracker[tabId].title = tab.title || tabTracker[tabId].title;
+      tabTracker[tabId].favIconUrl = tab.favIconUrl || tabTracker[tabId].favIconUrl;
+    }
   }
 
-  // Process after debounce so rapid-fire updates collapse into one
-  updateTimers[tabId] = setTimeout(() => {
-    delete updateTimers[tabId];
+  // No badge update needed — tab count doesn't change on navigation.
+  // Badge is updated by onCreated/onRemoved only.
 
-    if (tab.url && !isInternalUrl(tab.url)) {
-      if (!tabTracker[tabId]) {
-        tabTracker[tabId] = {
-          url: tab.url,
-          title: tab.title || 'Untitled',
-          favIconUrl: tab.favIconUrl || '',
-          activations: 0,
-          focusTime: 0,
-          lastActivated: null,
-          createdAt: Date.now()
-        };
-      } else {
-        tabTracker[tabId].url = tab.url;
-        tabTracker[tabId].title = tab.title || tabTracker[tabId].title;
-        tabTracker[tabId].favIconUrl = tab.favIconUrl || tabTracker[tabId].favIconUrl;
-      }
-    }
-
-    if (hasUrl) updateBadge();
-
-    // Only check duplicates once the page has fully loaded
-    if (isComplete) checkForDuplicates(tabId);
-  }, UPDATE_DEBOUNCE_MS);
+  // Duplicate check only on final load, and only if feature is enabled
+  if (isComplete && duplicateDetectionEnabled) {
+    checkForDuplicates(tabId);
+  }
 });
 
 // When a tab is created
 chrome.tabs.onCreated.addListener((tab) => {
   if (!trackingActive) return;
-  updateBadge();
+  cachedTabCount++;
+  renderBadge(cachedTabCount);
   // Duplicate check happens in onUpdated when status === 'complete'
 });
 
@@ -187,7 +184,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   // Clear any duplicate alarm for this tab
   chrome.alarms.clear(`dup-close-${tabId}`);
   // Don't delete from tracker - we need this data for classification
-  updateBadge();
+  cachedTabCount = Math.max(0, cachedTabCount - 1);
+  renderBadge(cachedTabCount);
 });
 
 // When window focus changes
@@ -578,25 +576,29 @@ async function executeUndo() {
 // BADGE
 // ============================================================
 
+// Full badge refresh — queries tabs and updates cachedTabCount
 async function updateBadge() {
   try {
     const tabs = await chrome.tabs.query({});
-    const count = tabs.length;
-
-    const text = count > 0 ? String(count) : '';
-
-    // Color coding
-    let color;
-    if (count <= 10) color = '#22c55e';       // green
-    else if (count <= 30) color = '#f59e0b';   // amber
-    else if (count <= 60) color = '#f97316';    // orange
-    else color = '#ef4444';                     // red
-
-    await chrome.action.setBadgeText({ text });
-    await chrome.action.setBadgeBackgroundColor({ color });
+    cachedTabCount = tabs.length;
+    renderBadge(cachedTabCount);
   } catch (e) {
     // Ignore errors during startup
   }
+}
+
+// Lightweight badge render — uses cached count, no async queries
+function renderBadge(count) {
+  const text = count > 0 ? String(count) : '';
+
+  let color;
+  if (count <= 10) color = '#22c55e';       // green
+  else if (count <= 30) color = '#f59e0b';   // amber
+  else if (count <= 60) color = '#f97316';    // orange
+  else color = '#ef4444';                     // red
+
+  chrome.action.setBadgeText({ text });
+  chrome.action.setBadgeBackgroundColor({ color });
 }
 
 // ============================================================
@@ -645,10 +647,10 @@ async function clearAllDuplicateTimers() {
 async function checkForDuplicates(triggeredByTabId) {
   if (!duplicateDetectionEnabled) return;
 
-  const data = await chrome.storage.local.get(['duplicateAutoCloseMinutes', 'sacredDomains']);
+  const data = await chrome.storage.local.get('duplicateAutoCloseMinutes');
 
   const delayMinutes = data.duplicateAutoCloseMinutes || 10;
-  const sacredDomains = data.sacredDomains || [];
+  const sacredDomains = cachedSacredDomains;
 
   let triggerTab;
   try {
@@ -885,9 +887,12 @@ async function handleMessage(message) {
         await scheduleResetAlarm();
       }
 
-      // Sync cached duplicate setting
+      // Sync cached settings
       if (updates.duplicateAutoClose !== undefined) {
         duplicateDetectionEnabled = !!updates.duplicateAutoClose;
+      }
+      if (updates.sacredDomains !== undefined) {
+        cachedSacredDomains = updates.sacredDomains;
       }
 
       // Clear duplicate timers if feature disabled
@@ -910,6 +915,7 @@ async function handleMessage(message) {
         domains.push(domain);
         await chrome.storage.local.set({ sacredDomains: domains });
       }
+      cachedSacredDomains = domains;
       return { success: true, sacredDomains: domains };
     }
 
@@ -917,6 +923,7 @@ async function handleMessage(message) {
       const data = await chrome.storage.local.get('sacredDomains');
       const domains = (data.sacredDomains || []).filter(d => d !== message.domain);
       await chrome.storage.local.set({ sacredDomains: domains });
+      cachedSacredDomains = domains;
       return { success: true, sacredDomains: domains };
     }
 
@@ -954,3 +961,30 @@ async function handleMessage(message) {
 chrome.action.onClicked.addListener(async (tab) => {
   await chrome.sidePanel.open({ windowId: tab.windowId });
 });
+
+// ---- Conditional exports for testing (Chrome ignores this) ----
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    classifyTab,
+    executeReset,
+    executeUndo,
+    scheduleResetAlarm,
+    checkForDuplicates,
+    handleMessage,
+    renderBadge,
+    isInternalUrl,
+    extractDomain,
+    isDomainMatch,
+    // State accessors for tests
+    _getState: () => ({ tabTracker, currentActiveTabId, currentActiveStart, trackingActive, duplicateDetectionEnabled, cachedTabCount, cachedSacredDomains }),
+    _setState: (patch) => {
+      if ('tabTracker' in patch) tabTracker = patch.tabTracker;
+      if ('currentActiveTabId' in patch) currentActiveTabId = patch.currentActiveTabId;
+      if ('currentActiveStart' in patch) currentActiveStart = patch.currentActiveStart;
+      if ('trackingActive' in patch) trackingActive = patch.trackingActive;
+      if ('duplicateDetectionEnabled' in patch) duplicateDetectionEnabled = patch.duplicateDetectionEnabled;
+      if ('cachedTabCount' in patch) cachedTabCount = patch.cachedTabCount;
+      if ('cachedSacredDomains' in patch) cachedSacredDomains = patch.cachedSacredDomains;
+    }
+  };
+}

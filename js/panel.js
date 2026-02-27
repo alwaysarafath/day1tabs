@@ -651,3 +651,19 @@ function escapeAttr(str) {
 function sendMessage(msg) {
   return chrome.runtime.sendMessage(msg);
 }
+
+// ---- Conditional exports for testing (Chrome ignores this) ----
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    renderArchive,
+    renderNextClose,
+    renderNeverCloseDomains,
+    updateGroupReopenBtn,
+    renderTabList,
+    formatTime,
+    escapeHtml,
+    escapeAttr,
+    extractDomain,
+    updateArchiveChrome
+  };
+}
