@@ -353,7 +353,77 @@ describe('handleMessage(updateSettings) — saves and reschedules', () => {
 });
 
 // ============================================================
-// 12. scheduleResetAlarm — correct time and period
+// 12. executeReset — closes existing day1tabs extension tabs
+// ============================================================
+describe('executeReset — closes existing day1tabs extension tabs', () => {
+  test('closes any pre-existing day1tabs panel tabs before opening results', async () => {
+    chrome.storage.local.set({
+      sacredDomains: [],
+      resetEnabled: true,
+      archive: [],
+      duplicatesClosedToday: []
+    });
+
+    chrome.tabs._setTabs([
+      { id: 1, url: 'https://active.com', title: 'Active', active: true, windowId: 1 },
+      { id: 2, url: 'https://example.com', title: 'Ex', active: false, windowId: 1 },
+      { id: 50, url: 'chrome-extension://iaklgpbfkohkghhmjjdfeiekemnnkklp/pages/panel.html?source=auto', title: 'day1tabs', active: false, windowId: 1 }
+    ]);
+
+    chrome.tabs.query.mockImplementation((q) => {
+      const tabs = chrome.tabs._tabs();
+      if (q.url) {
+        const pattern = new RegExp('^' + q.url.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+        return Promise.resolve(tabs.filter(t => t.url && pattern.test(t.url)));
+      }
+      if (q.active === true) return Promise.resolve(tabs.filter(t => t.active));
+      return Promise.resolve(tabs);
+    });
+
+    await bg.executeReset('manual');
+
+    // The extension tab (id 50) should have been closed via the pre-cleanup query
+    // and the normal tab (id 2) should also be closed by the reset itself
+    const allRemovedIds = chrome.tabs.remove.mock.calls.flat().flat();
+    expect(allRemovedIds).toContain(50);
+    expect(allRemovedIds).toContain(2);
+    expect(allRemovedIds).not.toContain(1); // active tab survives
+  });
+
+  test('does not error when no existing day1tabs tabs are present', async () => {
+    chrome.storage.local.set({
+      sacredDomains: [],
+      resetEnabled: true,
+      archive: [],
+      duplicatesClosedToday: []
+    });
+
+    chrome.tabs._setTabs([
+      { id: 1, url: 'https://active.com', title: 'Active', active: true, windowId: 1 },
+      { id: 2, url: 'https://example.com', title: 'Ex', active: false, windowId: 1 }
+    ]);
+
+    chrome.tabs.query.mockImplementation((q) => {
+      const tabs = chrome.tabs._tabs();
+      if (q.url) {
+        const pattern = new RegExp('^' + q.url.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+        return Promise.resolve(tabs.filter(t => t.url && pattern.test(t.url)));
+      }
+      if (q.active === true) return Promise.resolve(tabs.filter(t => t.active));
+      return Promise.resolve(tabs);
+    });
+
+    await bg.executeReset('manual');
+
+    // Should not throw; tab 2 is still closed normally
+    const allRemovedIds = chrome.tabs.remove.mock.calls.flat().flat();
+    expect(allRemovedIds).toContain(2);
+    expect(allRemovedIds).not.toContain(1);
+  });
+});
+
+// ============================================================
+// 13. scheduleResetAlarm — correct time and period
 // ============================================================
 describe('scheduleResetAlarm — correct time and period', () => {
   test('creates alarm with 24-hour period', async () => {

@@ -45,6 +45,11 @@ function makeTabs() {
   return {
     query: jest.fn((q) => Promise.resolve(
       tabs.filter(t => {
+        if (q.url !== undefined) {
+          // Simple Chrome match-pattern support: convert * to .*
+          const pattern = new RegExp('^' + q.url.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+          if (!t.url || !pattern.test(t.url)) return false;
+        }
         if (q.active !== undefined && t.active !== q.active) return false;
         if (q.currentWindow && !t.currentWindow) return false;
         if (q.lastFocusedWindow && !t.lastFocusedWindow) return false;

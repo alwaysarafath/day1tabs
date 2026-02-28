@@ -489,6 +489,17 @@ async function executeReset(source) {
   await initializeExistingTabs();
   await updateBadge();
 
+  // Close any existing day1tabs tabs before opening the results panel
+  try {
+    const extensionTabs = await chrome.tabs.query({ url: 'chrome-extension://iaklgpbfkohkghhmjjdfeiekemnnkklp/*' });
+    if (extensionTabs.length > 0) {
+      console.log(`[day1tabs] Closing ${extensionTabs.length} existing day1tabs tab(s)`);
+      await chrome.tabs.remove(extensionTabs.map(t => t.id));
+    }
+  } catch (e) {
+    console.log('[day1tabs] Could not close existing day1tabs tabs:', e);
+  }
+
   // Show results after reset
   if (tabsToClose.length > 0) {
     await chrome.storage.local.set({ lastResetSource: source });
