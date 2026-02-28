@@ -225,38 +225,9 @@ describe('checkForDuplicates — early return when disabled', () => {
 });
 
 // ============================================================
-// 8. renderBadge — count and color coding
+// 8. renderBadge — DISABLED (badge removed)
 // ============================================================
-describe('renderBadge — count and color coding', () => {
-  test('sets green badge for 5 tabs', () => {
-    bg.renderBadge(5);
-    expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '5' });
-    expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#22c55e' });
-  });
-
-  test('sets amber badge for 20 tabs', () => {
-    bg.renderBadge(20);
-    expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '20' });
-    expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#f59e0b' });
-  });
-
-  test('sets orange badge for 50 tabs', () => {
-    bg.renderBadge(50);
-    expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '50' });
-    expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#f97316' });
-  });
-
-  test('sets red badge for 100 tabs', () => {
-    bg.renderBadge(100);
-    expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '100' });
-    expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#ef4444' });
-  });
-
-  test('sets empty text for 0 tabs', () => {
-    bg.renderBadge(0);
-    expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '' });
-  });
-});
+// Badge functionality commented out — no longer showing open tab counts.
 
 // ============================================================
 // 9. handleMessage(reopenTabs) — marks tab as reopened

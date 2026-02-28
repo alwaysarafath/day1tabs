@@ -252,26 +252,9 @@ describe('4. executeReset with 30 tabs', () => {
 });
 
 // ================================================================
-// 5. Badge update — V3 uses sync renderBadge (no tabs.query)
+// 5. Badge update — DISABLED (badge removed)
 // ================================================================
-describe('5. Badge update', () => {
-  test('renderBadge call < 10ms with ZERO queries', () => {
-    const callsBefore = countApiCalls();
-
-    const avg = bench(() => {
-      bg.renderBadge(42);
-    }, 100);
-
-    const apiCalls = countApiCalls() - callsBefore;
-    // renderBadge makes 2 calls: setBadgeText + setBadgeBackgroundColor
-    // but ZERO tabs.query calls (the key optimization)
-    const queryCount = chrome.tabs.query.mock?.calls?.length || 0;
-
-    record('Badge renderBadge()', avg, 10, apiCalls);
-    expect(avg).toBeLessThan(10);
-    expect(queryCount).toBe(0); // V3: no tabs.query on badge update
-  });
-});
+// Badge functionality commented out — no longer showing open tab counts.
 
 // ================================================================
 // 6. Duplicate check — disabled (in-memory flag) vs enabled

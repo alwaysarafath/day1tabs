@@ -61,8 +61,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   // Schedule the reset alarm
   await scheduleResetAlarm();
 
-  // Update badge
-  await updateBadge();
+  // // Update badge
+  // await updateBadge();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
@@ -71,7 +71,7 @@ chrome.runtime.onStartup.addListener(async () => {
   cachedSacredDomains = cachedData.sacredDomains || [];
   await initializeExistingTabs();
   await scheduleResetAlarm();
-  await updateBadge();
+  // await updateBadge();
 });
 
 async function initializeExistingTabs() {
@@ -171,8 +171,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // When a tab is created
 chrome.tabs.onCreated.addListener((tab) => {
   if (!trackingActive) return;
-  cachedTabCount++;
-  renderBadge(cachedTabCount);
+  // cachedTabCount++;
+  // renderBadge(cachedTabCount);
   // Duplicate check happens in onUpdated when status === 'complete'
 });
 
@@ -184,8 +184,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   // Clear any duplicate alarm for this tab
   chrome.alarms.clear(`dup-close-${tabId}`);
   // Don't delete from tracker - we need this data for classification
-  cachedTabCount = Math.max(0, cachedTabCount - 1);
-  renderBadge(cachedTabCount);
+  // cachedTabCount = Math.max(0, cachedTabCount - 1);
+  // renderBadge(cachedTabCount);
 });
 
 // When window focus changes
@@ -487,7 +487,7 @@ async function executeReset(source) {
 
   // Re-initialize tracking for remaining tabs
   await initializeExistingTabs();
-  await updateBadge();
+  // await updateBadge();
 
   // Close any existing day1tabs tabs before opening the results panel
   try {
@@ -578,7 +578,7 @@ async function executeUndo() {
 
   // Clear undo data
   await chrome.storage.local.set({ undoData: null });
-  await updateBadge();
+  // await updateBadge();
 
   return { success: true, count: reopenedCount };
 }
@@ -587,30 +587,30 @@ async function executeUndo() {
 // BADGE
 // ============================================================
 
-// Full badge refresh — queries tabs and updates cachedTabCount
-async function updateBadge() {
-  try {
-    const tabs = await chrome.tabs.query({});
-    cachedTabCount = tabs.length;
-    renderBadge(cachedTabCount);
-  } catch (e) {
-    // Ignore errors during startup
-  }
-}
-
-// Lightweight badge render — uses cached count, no async queries
-function renderBadge(count) {
-  const text = count > 0 ? String(count) : '';
-
-  let color;
-  if (count <= 10) color = '#22c55e';       // green
-  else if (count <= 30) color = '#f59e0b';   // amber
-  else if (count <= 60) color = '#f97316';    // orange
-  else color = '#ef4444';                     // red
-
-  chrome.action.setBadgeText({ text });
-  chrome.action.setBadgeBackgroundColor({ color });
-}
+// // Full badge refresh — queries tabs and updates cachedTabCount
+// async function updateBadge() {
+//   try {
+//     const tabs = await chrome.tabs.query({});
+//     cachedTabCount = tabs.length;
+//     renderBadge(cachedTabCount);
+//   } catch (e) {
+//     // Ignore errors during startup
+//   }
+// }
+//
+// // Lightweight badge render — uses cached count, no async queries
+// function renderBadge(count) {
+//   const text = count > 0 ? String(count) : '';
+//
+//   let color;
+//   if (count <= 10) color = '#22c55e';       // green
+//   else if (count <= 30) color = '#f59e0b';   // amber
+//   else if (count <= 60) color = '#f97316';    // orange
+//   else color = '#ef4444';                     // red
+//
+//   chrome.action.setBadgeText({ text });
+//   chrome.action.setBadgeBackgroundColor({ color });
+// }
 
 // ============================================================
 // HELPERS
@@ -982,7 +982,7 @@ if (typeof module !== 'undefined' && module.exports) {
     scheduleResetAlarm,
     checkForDuplicates,
     handleMessage,
-    renderBadge,
+    // renderBadge,
     isInternalUrl,
     extractDomain,
     isDomainMatch,
