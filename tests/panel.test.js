@@ -198,3 +198,135 @@ describe('extractDomain', () => {
     expect(panel.extractDomain('not-a-url')).toBe('');
   });
 });
+
+// ============================================================
+// "Missing something?" hint
+// ============================================================
+describe('"Missing something?" hint', () => {
+  test('hint is displayed after auto-close', async () => {
+    chrome.storage.local.set({ lastResetSource: 'auto', hintDismissCount: 0 });
+
+    await panel.showMissingHint({ archive: [] });
+
+    const hint = document.getElementById('missingHint');
+    expect(hint.style.display).toBe('flex');
+  });
+
+  test('hint is NOT displayed after manual close', async () => {
+    chrome.storage.local.set({ lastResetSource: 'manual', hintDismissCount: 0 });
+
+    await panel.showMissingHint({ archive: [] });
+
+    const hint = document.getElementById('missingHint');
+    expect(hint.style.display).toBe('none');
+  });
+
+  test('hint is NOT displayed after 5th auto-close (hintDismissCount >= 5)', async () => {
+    chrome.storage.local.set({ lastResetSource: 'auto', hintDismissCount: 5 });
+
+    await panel.showMissingHint({ archive: [] });
+
+    const hint = document.getElementById('missingHint');
+    expect(hint.style.display).toBe('none');
+  });
+
+  test('dismiss button increments hintDismissCount', async () => {
+    chrome.storage.local.set({ lastResetSource: 'auto', hintDismissCount: 2 });
+
+    await panel.showMissingHint({ archive: [] });
+
+    const dismissBtn = document.getElementById('missingHintDismiss');
+    dismissBtn.click();
+
+    // Wait for async storage write
+    await new Promise(r => setTimeout(r, 10));
+
+    const stored = await chrome.storage.local.get('hintDismissCount');
+    expect(stored.hintDismissCount).toBe(3);
+
+    const hint = document.getElementById('missingHint');
+    expect(hint.style.display).toBe('none');
+  });
+});
+
+// ============================================================
+// Tab usage info display
+// ============================================================
+describe('Tab usage info', () => {
+  test('tab usage info displays correct visit count and time', () => {
+    const archiveResult = {
+      archive: [{
+        date: '2025-01-01',
+        timestamp: Date.now() - 30000,
+        tabs: [
+          { url: 'https://a.com', title: 'A', classification: 'workhorse', favIconUrl: '', activations: 4, focusTime: 154000 }
+        ],
+        stats: { total: 1, reopened: 0, used: 1, didntUse: 0 }
+      }]
+    };
+
+    panel.renderArchive(archiveResult, {});
+
+    const usedList = document.getElementById('usedList');
+    const detail = usedList.querySelector('.tab-usage-detail');
+    expect(detail).not.toBeNull();
+    expect(detail.textContent).toContain('Visited 4 times');
+    expect(detail.textContent).toContain('2m 34s');
+  });
+});
+
+// ============================================================
+// Time formatting (formatDuration)
+// ============================================================
+describe('formatDuration', () => {
+  test('formats sub-10s as "< 10s"', () => {
+    expect(panel.formatDuration(3000)).toBe('< 10s');
+    expect(panel.formatDuration(0)).toBe('< 10s');
+  });
+
+  test('formats seconds correctly', () => {
+    expect(panel.formatDuration(30000)).toBe('30s');
+    expect(panel.formatDuration(45000)).toBe('45s');
+  });
+
+  test('formats minutes correctly', () => {
+    expect(panel.formatDuration(60000)).toBe('1m');
+    expect(panel.formatDuration(154000)).toBe('2m 34s');
+  });
+
+  test('formats hours correctly', () => {
+    expect(panel.formatDuration(3600000)).toBe('1h');
+    expect(panel.formatDuration(5400000)).toBe('1h 30m');
+  });
+});
+
+// ============================================================
+// Footer content
+// ============================================================
+describe('Footer redesign', () => {
+  test('footer contains Review, Share, Buy me a coffee links', () => {
+    const footer = document.querySelector('.panel-footer');
+    expect(footer.innerHTML).toContain('Review');
+    expect(footer.innerHTML).toContain('Share');
+    expect(footer.innerHTML).toContain('Coffee');
+  });
+
+  test('footer does NOT contain RAM estimate text', () => {
+    const archiveResult = {
+      archive: [{
+        date: '2025-01-01',
+        timestamp: Date.now() - 30000,
+        tabs: [
+          { url: 'https://a.com', title: 'A', classification: 'ghost', favIconUrl: '' }
+        ],
+        stats: { total: 1, reopened: 0, used: 0, didntUse: 1 }
+      }]
+    };
+
+    panel.renderArchive(archiveResult, {});
+
+    const footer = document.querySelector('.panel-footer');
+    expect(footer.textContent).not.toContain('MB freed');
+    expect(footer.textContent).not.toContain('GB freed');
+  });
+});

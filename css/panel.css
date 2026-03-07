@@ -720,6 +720,83 @@ body.tab-view {
   opacity: 0.7;
 }
 
+/* ---- Missing something? hint ---- */
+.missing-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.missing-hint-link {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.missing-hint-link:hover {
+  text-decoration: underline;
+}
+
+.missing-hint-dismiss {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.missing-hint-dismiss:hover {
+  color: var(--text-muted);
+}
+
+/* ---- Tab usage details ---- */
+.tab-usage-toggle {
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color 0.15s;
+  line-height: 1;
+}
+
+.tab-usage-toggle:hover {
+  color: var(--accent);
+}
+
+.tab-usage-detail {
+  display: none;
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.tab-usage-detail.visible {
+  display: block;
+}
+
+/* ---- Chrome history hint ---- */
+.history-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 8px 4px 2px;
+}
+
 /* ---- Footer ---- */
 .panel-footer {
   margin-top: auto;
@@ -727,10 +804,36 @@ body.tab-view {
   text-align: center;
 }
 
-.footer-line1 {
-  font-size: 11px;
+.footer-icons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.footer-icon-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   color: var(--text-dim);
-  line-height: 1.5;
+  text-decoration: none;
+  font-size: 11px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.footer-icon-link:hover {
+  color: var(--accent);
+}
+
+.footer-sep {
+  color: var(--text-dim);
+  font-size: 10px;
 }
 
 .footer-line2 {
@@ -741,16 +844,6 @@ body.tab-view {
 
 .footer-line2 span {
   color: var(--text-dim);
-}
-
-.coffee-link {
-  color: var(--green);
-  text-decoration: none;
-  transition: opacity 0.15s;
-}
-
-.coffee-link:hover {
-  opacity: 0.7;
 }
 
 .footer-line2 a {

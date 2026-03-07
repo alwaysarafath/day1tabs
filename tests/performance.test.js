@@ -313,3 +313,65 @@ describe('6. Duplicate check', () => {
     expect(avg).toBeLessThan(5);
   });
 });
+
+// ================================================================
+// 7. stopFocusTracking with storage save — performance budget
+// ================================================================
+describe('7. stopFocusTracking with storage save', () => {
+  test('stopFocusTracking stays under 2ms', () => {
+    const tracker = {};
+    for (let i = 0; i < 20; i++) {
+      tracker[i] = {
+        url: `https://site${i}.com`, title: `Site ${i}`, favIconUrl: '',
+        activations: 2, focusTime: 50000, lastActivated: Date.now(), createdAt: Date.now()
+      };
+    }
+    bg._setState({ tabTracker: tracker, currentActiveTabId: 5, currentActiveStart: Date.now() - 10000 });
+
+    const avg = bench(() => {
+      bg._setState({ currentActiveTabId: 5, currentActiveStart: Date.now() - 10000 });
+      bg.stopFocusTracking();
+    }, 50);
+
+    record('stopFocusTracking + save', avg, 2, undefined);
+    expect(avg).toBeLessThan(2);
+  });
+});
+
+// ================================================================
+// 8. Service worker restore + classify flow — performance budget
+// ================================================================
+describe('8. Service worker restore + classify', () => {
+  test('restore from backup + classify 20 tabs < 10ms', async () => {
+    const backup = {};
+    for (let i = 1; i <= 20; i++) {
+      backup[i] = {
+        url: `https://site${i}.com`, title: `Site ${i}`, favIconUrl: '',
+        activations: i % 3 === 0 ? 3 : 0, focusTime: i % 3 === 0 ? 90000 : 2000,
+        lastActivated: Date.now(), createdAt: Date.now()
+      };
+    }
+
+    const tabs = [];
+    for (let i = 1; i <= 20; i++) {
+      tabs.push({ id: i, url: `https://site${i}.com`, title: `Site ${i}`, active: i === 1, windowId: 1 });
+    }
+
+    const avg = await benchAsync(async () => {
+      chrome._reset();
+      chrome.storage.local.set({ tabTrackerBackup: { ...backup } });
+      chrome.tabs._setTabs([...tabs]);
+      chrome.tabs.query.mockImplementation(() => Promise.resolve(chrome.tabs._tabs()));
+      bg._setState({ tabTracker: {} });
+
+      await bg.restoreTabTracker();
+
+      const state = bg._getState();
+      const classifications = Object.values(state.tabTracker).map(t => bg.classifyTab(t));
+      return classifications;
+    }, 20);
+
+    record('Restore + classify (20 tabs)', avg, 10, undefined);
+    expect(avg).toBeLessThan(10);
+  });
+});

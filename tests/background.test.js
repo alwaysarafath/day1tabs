@@ -338,7 +338,7 @@ describe('executeReset — closes existing day1tabs extension tabs', () => {
     chrome.tabs._setTabs([
       { id: 1, url: 'https://active.com', title: 'Active', active: true, windowId: 1 },
       { id: 2, url: 'https://example.com', title: 'Ex', active: false, windowId: 1 },
-      { id: 50, url: 'chrome-extension://iaklgpbfkohkghhmjjdfeiekemnnkklp/pages/panel.html?source=auto', title: 'day1tabs', active: false, windowId: 1 }
+      { id: 50, url: 'chrome-extension://fakeid/pages/panel.html?source=auto', title: 'day1tabs', active: false, windowId: 1 }
     ]);
 
     chrome.tabs.query.mockImplementation((q) => {
@@ -419,5 +419,229 @@ describe('scheduleResetAlarm — correct time and period', () => {
 
     expect(chrome.alarms.clear).toHaveBeenCalledWith('day1tabs-reset');
     expect(chrome.alarms.create).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// 14. tabTracker persistence — service worker lifecycle
+// ============================================================
+describe('tabTracker persistence — service worker lifecycle', () => {
+  test('tabTracker is saved to storage when stopFocusTracking is called', async () => {
+    bg._setState({
+      tabTracker: {
+        1: { url: 'https://a.com', title: 'A', favIconUrl: '', activations: 3, focusTime: 50000, lastActivated: Date.now(), createdAt: Date.now() }
+      },
+      currentActiveTabId: 1,
+      currentActiveStart: Date.now() - 5000
+    });
+
+    bg.stopFocusTracking();
+
+    // Wait for the async save to complete
+    await new Promise(r => setTimeout(r, 10));
+
+    const stored = await chrome.storage.local.get('tabTrackerBackup');
+    expect(stored.tabTrackerBackup).toBeDefined();
+    expect(stored.tabTrackerBackup[1]).toBeDefined();
+    expect(stored.tabTrackerBackup[1].activations).toBe(3);
+    expect(stored.tabTrackerBackup[1].focusTime).toBeGreaterThanOrEqual(55000);
+  });
+
+  test('tabTracker is restored from storage on service worker initialization', async () => {
+    // Simulate backup in storage from a previous SW session
+    chrome.storage.local.set({
+      tabTrackerBackup: {
+        10: { url: 'https://restored.com', title: 'Restored', favIconUrl: '', activations: 5, focusTime: 120000, lastActivated: Date.now(), createdAt: Date.now() }
+      }
+    });
+
+    // Simulate open tabs matching the backup
+    chrome.tabs._setTabs([
+      { id: 10, url: 'https://restored.com', title: 'Restored', active: true, windowId: 1 }
+    ]);
+    chrome.tabs.query.mockImplementation((q) => {
+      const tabs = chrome.tabs._tabs();
+      if (q.active === true) return Promise.resolve(tabs.filter(t => t.active));
+      return Promise.resolve(tabs);
+    });
+
+    // tabTracker starts empty
+    bg._setState({ tabTracker: {} });
+
+    await bg.restoreTabTracker();
+
+    const state = bg._getState();
+    expect(state.tabTracker[10]).toBeDefined();
+    expect(state.tabTracker[10].activations).toBe(5);
+    expect(state.tabTracker[10].focusTime).toBe(120000);
+  });
+
+  test('restored tabTracker correctly classifies tabs as "Used"', async () => {
+    chrome.storage.local.set({
+      tabTrackerBackup: {
+        10: { url: 'https://used.com', title: 'Used', favIconUrl: '', activations: 5, focusTime: 120000, lastActivated: Date.now(), createdAt: Date.now() }
+      }
+    });
+
+    chrome.tabs._setTabs([
+      { id: 10, url: 'https://used.com', title: 'Used', active: true, windowId: 1 }
+    ]);
+    chrome.tabs.query.mockImplementation((q) => {
+      const tabs = chrome.tabs._tabs();
+      if (q.active === true) return Promise.resolve(tabs.filter(t => t.active));
+      return Promise.resolve(tabs);
+    });
+
+    bg._setState({ tabTracker: {} });
+    await bg.restoreTabTracker();
+
+    const state = bg._getState();
+    const classification = bg.classifyTab(state.tabTracker[10]);
+    expect(classification).toBe('workhorse');
+  });
+
+  test('executeReset clears tabTrackerBackup from storage', async () => {
+    chrome.storage.local.set({
+      sacredDomains: [],
+      resetEnabled: true,
+      archive: [],
+      duplicatesClosedToday: [],
+      tabTrackerBackup: { 1: { activations: 3, focusTime: 90000 } }
+    });
+
+    chrome.tabs._setTabs([
+      { id: 1, url: 'https://active.com', title: 'Active', active: true, windowId: 1 },
+      { id: 2, url: 'https://example.com', title: 'Ex', active: false, windowId: 1 }
+    ]);
+
+    chrome.tabs.query.mockImplementation((q) => {
+      const tabs = chrome.tabs._tabs();
+      if (q.active === true) return Promise.resolve(tabs.filter(t => t.active));
+      return Promise.resolve(tabs);
+    });
+
+    await bg.executeReset('manual');
+
+    const stored = await chrome.storage.local.get('tabTrackerBackup');
+    expect(stored.tabTrackerBackup).toBeNull();
+  });
+
+  test('stale tabs in restored tracker (tab no longer exists) are cleaned up', async () => {
+    chrome.storage.local.set({
+      tabTrackerBackup: {
+        10: { url: 'https://alive.com', title: 'Alive', favIconUrl: '', activations: 2, focusTime: 50000, lastActivated: Date.now(), createdAt: Date.now() },
+        99: { url: 'https://stale.com', title: 'Stale', favIconUrl: '', activations: 1, focusTime: 5000, lastActivated: Date.now(), createdAt: Date.now() }
+      }
+    });
+
+    // Only tab 10 exists; tab 99 was closed while worker was dead
+    chrome.tabs._setTabs([
+      { id: 10, url: 'https://alive.com', title: 'Alive', active: true, windowId: 1 }
+    ]);
+    chrome.tabs.query.mockImplementation(() => Promise.resolve(chrome.tabs._tabs()));
+
+    bg._setState({ tabTracker: {} });
+    await bg.restoreTabTracker();
+
+    const state = bg._getState();
+    expect(state.tabTracker[10]).toBeDefined();
+    expect(state.tabTracker[99]).toBeUndefined();
+  });
+
+  test('merge logic — live data wins over storage backup', async () => {
+    chrome.storage.local.set({
+      tabTrackerBackup: {
+        10: { url: 'https://a.com', title: 'A', favIconUrl: '', activations: 2, focusTime: 30000, lastActivated: Date.now(), createdAt: Date.now() }
+      }
+    });
+
+    chrome.tabs._setTabs([
+      { id: 10, url: 'https://a.com', title: 'A', active: true, windowId: 1 }
+    ]);
+    chrome.tabs.query.mockImplementation(() => Promise.resolve(chrome.tabs._tabs()));
+
+    // Live data already exists with higher activations
+    bg._setState({
+      tabTracker: {
+        10: { url: 'https://a.com', title: 'A', favIconUrl: '', activations: 5, focusTime: 90000, lastActivated: Date.now(), createdAt: Date.now() }
+      }
+    });
+
+    await bg.restoreTabTracker();
+
+    const state = bg._getState();
+    expect(state.tabTracker[10].activations).toBe(5); // live data wins
+    expect(state.tabTracker[10].focusTime).toBe(90000);
+  });
+
+  test('initialization works normally when storage backup is empty', async () => {
+    // No backup in storage
+    chrome.tabs._setTabs([
+      { id: 10, url: 'https://a.com', title: 'A', active: true, windowId: 1 }
+    ]);
+    chrome.tabs.query.mockImplementation(() => Promise.resolve(chrome.tabs._tabs()));
+
+    bg._setState({ tabTracker: {} });
+    await bg.restoreTabTracker();
+
+    const state = bg._getState();
+    // tabTracker should still be empty — no backup to restore
+    expect(Object.keys(state.tabTracker)).toHaveLength(0);
+  });
+});
+
+// ============================================================
+// 15. Extension URL protection — day1tabs only
+// ============================================================
+describe('Extension URL protection — day1tabs only', () => {
+  test('day1tabs extension URLs are NOT closed during reset (isInternalUrl)', () => {
+    // chrome.runtime.id is 'fakeid' in our mock
+    expect(bg.isInternalUrl('chrome-extension://fakeid/pages/panel.html')).toBe(true);
+  });
+
+  test('other extension URLs ARE closeable (not internal)', () => {
+    expect(bg.isInternalUrl('chrome-extension://otherid/popup.html')).toBe(false);
+  });
+
+  test('chrome:// URLs are still protected', () => {
+    expect(bg.isInternalUrl('chrome://settings')).toBe(true);
+    expect(bg.isInternalUrl('chrome://extensions')).toBe(true);
+  });
+
+  test('about: URLs are still protected', () => {
+    expect(bg.isInternalUrl('about:blank')).toBe(true);
+  });
+
+  test('other extension tabs ARE closed during executeReset', async () => {
+    chrome.storage.local.set({
+      sacredDomains: [],
+      resetEnabled: true,
+      archive: [],
+      duplicatesClosedToday: []
+    });
+
+    chrome.tabs._setTabs([
+      { id: 1, url: 'https://active.com', title: 'Active', active: true, windowId: 1 },
+      { id: 2, url: 'chrome-extension://otherid/popup.html', title: 'Other Ext', active: false, windowId: 1 },
+      { id: 3, url: 'chrome-extension://fakeid/pages/panel.html', title: 'day1tabs', active: false, windowId: 1 }
+    ]);
+
+    chrome.tabs.query.mockImplementation((q) => {
+      const tabs = chrome.tabs._tabs();
+      if (q.url) {
+        const pattern = new RegExp('^' + q.url.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+        return Promise.resolve(tabs.filter(t => t.url && pattern.test(t.url)));
+      }
+      if (q.active === true) return Promise.resolve(tabs.filter(t => t.active));
+      return Promise.resolve(tabs);
+    });
+
+    await bg.executeReset('manual');
+
+    const allRemovedIds = chrome.tabs.remove.mock.calls.flat().flat();
+    expect(allRemovedIds).toContain(2);  // other extension — closed
+    expect(allRemovedIds).not.toContain(1);  // active tab — kept
+    // Tab 3 (day1tabs) is internal, so it won't be in tabsToClose from the main loop,
+    // but it will be closed by the pre-cleanup step
   });
 });

@@ -127,8 +127,10 @@ classifyTab(tabData):
 - Pinned tabs
 - Active/focused tab in each window
 - Tabs matching a `sacredDomains` entry (subdomain-aware)
-- Internal URLs: `chrome://`, `chrome-extension://`, `about:`, `edge://`, `brave://`
+- Internal URLs: `chrome://`, `about:`, `edge://`, `brave://`
   - Exception: `chrome://newtab` IS closed
+- day1tabs extension URLs (`chrome-extension://{OUR_ID}/`) — protected
+  - Other extensions' `chrome-extension://` URLs are NOT protected and will be closed normally
 
 ---
 
@@ -204,7 +206,15 @@ UndoData {
 }
 ```
 
-### In-Memory State (background.js only, lost on SW termination)
+### Service Worker Persistence (v3.1)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `tabTrackerBackup` | `object \| null` | `null` | Snapshot of tabTracker; persisted on tab switch, onSuspend, and every 2 min via alarm. Cleared after executeReset(). |
+| `hintDismissCount` | `number` | `0` | How many times the "Missing something?" hint has been dismissed. Hint hidden after 5. |
+| `lastResetSource` | `string` | `""` | `"auto"` or `"manual"` — used to decide whether to show the missing-something hint. |
+
+### In-Memory State (background.js only, backed up to storage)
 
 ```
 tabTracker[tabId] = {
@@ -219,6 +229,13 @@ currentActiveTabId:   number | null
 currentActiveStart:   number | null   // timestamp when focus began
 trackingActive:       boolean         // pause/resume flag
 ```
+
+**Suspend/Restore Pattern (v3.1):** Chrome kills MV3 service workers after ~30s of inactivity. The `tabTracker` is now persisted to `chrome.storage.local` under the key `tabTrackerBackup` on these events:
+1. Every `stopFocusTracking()` call (tab switch, window blur)
+2. `chrome.runtime.onSuspend` listener (Chrome about to kill the worker)
+3. Every 2 minutes via the `day1tabs-save-tracker` alarm (safety net)
+
+On worker wake (onStartup, onInstalled, or before the midnight alarm fires), `restoreTabTracker()` reads the backup and merges it with any live data — live data always wins. Stale entries (tabs that no longer exist) are cleaned up by cross-referencing with `chrome.tabs.query()`. The backup is cleared to `null` after `executeReset()` completes.
 
 ---
 
@@ -272,7 +289,8 @@ chrome.action.onClicked
 
 | Alarm Name | Schedule | Action |
 |------------|----------|--------|
-| `day1tabs-reset` | Daily at `resetHour:resetMinute`, repeats every 24h | `executeReset('auto')` |
+| `day1tabs-reset` | Daily at `resetHour:resetMinute`, repeats every 24h | Restore tabTracker from backup, then `executeReset('auto')` |
+| `day1tabs-save-tracker` | Every 2 minutes (repeating) | Persist `tabTracker` to `tabTrackerBackup` in storage (safety net) |
 | `dup-close-{tabId}` | One-shot, fires after `duplicateAutoCloseMinutes` | Close the duplicate tab |
 
 ### Message Protocol (UI → Background)
@@ -310,7 +328,7 @@ chrome.action.onClicked
 
 ### Architecture Constraints to Be Aware Of
 
-1. **In-memory tracker** — `tabTracker` lives only in the service worker's memory. If Chrome terminates the SW (MV3 idle timeout), tracking data is lost until `onStartup` re-initializes. Activations and focusTime accumulated before termination are preserved only for the current SW lifetime. SW is kept alive by regular tab events.
+1. **In-memory tracker with backup** — `tabTracker` lives in the service worker's memory, backed up to `chrome.storage.local` on tab switches, onSuspend, and via a 2-minute periodic alarm. If Chrome terminates the SW (MV3 idle timeout), the tracker is restored from backup on next wake. Live data always takes precedence over backup data during merge.
 
 2. **Full archive re-render on bulk actions** — "Reopen all", "Fresh Start", and group reopens still do a full DOM rebuild via `renderArchive()` since the entire tab list state changes. Only single-tab reopens use the lightweight path.
 
@@ -321,3 +339,45 @@ chrome.action.onClicked
 5. **Duplicate check queries all tabs** — `checkForDuplicates` calls `chrome.tabs.query({ url })` on every tab activation/creation/navigation. At normal tab counts this is sub-millisecond, but it's the most frequently called chrome API.
 
 6. **No favicon caching** — favicons are loaded from their original URLs. If a favicon server is slow, the panel may show placeholder letters until images arrive. The `loading="lazy"` attribute mitigates this for off-screen items.
+
+---
+
+## 6. Panel UX Flow (v3.1)
+
+### Post-Reset Panel Layout
+
+```
+┌─────────────────────────────────────────────────────┐
+│ [Missing something? Add to never-close → Settings]  │  ← hint (auto-close, first 5 times)
+│ "X tabs closed · just now"                          │  ← archive summary
+│                                                      │
+│ ▸ Used (N)                    [Reopen all]          │
+│   ├─ tab item  [ℹ] [Open]                          │
+│   └─ tab item  [ℹ] [Open]                          │
+│                                                      │
+│ ▸ Didn't use (N)              [Reopen all]          │
+│   ├─ tab item  [ℹ] [Open]                          │
+│   └─ tab item  [ℹ] [Open]                          │
+│                                                      │
+│ [Reopen everything]                                  │
+│ Looking for something older? Check Chrome history    │  ← reassurance
+│                                                      │
+│ [Review] · [Share] · [Coffee]                       │  ← icon footer
+│ day1tabs.com · v3.1.0                               │
+└─────────────────────────────────────────────────────┘
+```
+
+### Hint System
+- "Missing something?" hint shown after auto-close only (not manual)
+- Tracked via `hintDismissCount` in storage (hidden after 5 dismissals)
+- "Settings" link opens settings panel and scrolls to never-close section
+
+### Tab Usage Details
+- Each tab has an info icon (ℹ) that toggles a detail row
+- Shows: "Visited N times · Xm Ys" (or "< 10s")
+- Data comes from `activations` and `focusTime` in the archive entry
+
+### Footer
+- Icon-based row: Review (CWS) | Share (Web Share API / clipboard) | Coffee (BMC)
+- Site link + version number on second line
+- No RAM estimate (removed in v3.1)

@@ -96,8 +96,10 @@ function buildChrome() {
       onClicked: { addListener: jest.fn() }
     },
     runtime: {
+      id: 'fakeid',
       onInstalled: { addListener: jest.fn() },
       onStartup: { addListener: jest.fn() },
+      onSuspend: { addListener: jest.fn() },
       onMessage: { addListener: jest.fn() },
       getURL: jest.fn((path) => `chrome-extension://fakeid/${path}`),
       getManifest: jest.fn(() => ({ version: '3.0.0' })),

@@ -28,6 +28,7 @@ async function init() {
   setupSettings(statusResult);
   setupDomainDelegation();
   renderArchive(archiveResult, statusResult);
+  await showMissingHint(archiveResult);
 
   // Tab-view customizations (scheduled close only)
   if (isTabView) {
@@ -88,6 +89,21 @@ async function init() {
   }
 
   setupEventListeners(currentStatus);
+
+  // Footer share button
+  const footerShareBtn = document.getElementById('footerShareBtn');
+  if (footerShareBtn) {
+    footerShareBtn.addEventListener('click', async () => {
+      const didntUseCount = currentArchive?.archive?.[0]?.tabs?.filter(t => t.classification !== 'workhorse').length || 0;
+      const shareText = `Hi, I am using day1Tabs to clear my clutter daily and it closed ${didntUseCount} tab${didntUseCount !== 1 ? 's' : ''} yesterday that I didn't use automatically. Give it a try!\n\nChrome Web Store: https://chromewebstore.google.com/detail/day1tabs/iaklgpbfkohkghhmjjdfeiekemnnkklp\nWebsite: https://day1tabs.com/`;
+      if (navigator.share) {
+        try { await navigator.share({ text: shareText }); } catch (e) {}
+      } else {
+        await navigator.clipboard.writeText(shareText);
+        showToast('Copied to clipboard');
+      }
+    });
+  }
 
   // Footer version from manifest
   const manifest = chrome.runtime.getManifest();
@@ -345,9 +361,18 @@ function setupEventListeners(status) {
     });
   });
 
-  // Delegated click handler for individual tab reopen buttons
+  // Delegated click handler for usage info toggle + individual tab reopen buttons
   document.querySelectorAll('.tab-list').forEach(list => {
     list.addEventListener('click', async (e) => {
+      // Toggle usage detail
+      const infoBtn = e.target.closest('.tab-usage-toggle');
+      if (infoBtn) {
+        const item = infoBtn.closest('.tab-item');
+        const detail = item?.querySelector('.tab-usage-detail');
+        if (detail) detail.classList.toggle('visible');
+        return;
+      }
+
       const btn = e.target.closest('.tab-reopen-btn');
       if (!btn || btn.classList.contains('reopened')) return;
       e.stopPropagation();
@@ -385,7 +410,6 @@ function renderArchive(archiveResult, status) {
   if (archive.length === 0 || !archive[0] || archive[0].tabs.length === 0) {
     document.getElementById('archiveEmpty').style.display = 'block';
     document.getElementById('archiveContent').style.display = 'none';
-    document.getElementById('footerRam').textContent = '';
     return;
   }
 
@@ -417,19 +441,9 @@ function renderArchive(archiveResult, status) {
   const allTabs = archiveData.tabs;
   const anyToReopen = allTabs.some(t => !t.reopened);
   document.getElementById('reopenAllWrap').style.display = anyToReopen ? 'block' : 'none';
-
-  // Footer RAM estimate
-  const nonReopened = archiveData.tabs.filter(t => !t.reopened).length;
-  const ramMB = nonReopened * 100;
-  if (ramMB > 0) {
-    const ramStr = ramMB >= 1000 ? `~${(ramMB / 1000).toFixed(1)} GB freed` : `~${ramMB} MB freed`;
-    document.getElementById('footerRam').textContent = `Estimated ${ramStr}`;
-  } else {
-    document.getElementById('footerRam').textContent = '';
-  }
 }
 
-// Lightweight update: refresh counters, reopen buttons, and footer without rebuilding tab DOM
+// Lightweight update: refresh counters, reopen buttons without rebuilding tab DOM
 function updateArchiveChrome(archiveResult, status) {
   const archive = archiveResult.archive || [];
   if (archive.length === 0 || !archive[0]) return;
@@ -444,16 +458,6 @@ function updateArchiveChrome(archiveResult, status) {
   const allTabs = archiveData.tabs;
   const anyToReopen = allTabs.some(t => !t.reopened);
   document.getElementById('reopenAllWrap').style.display = anyToReopen ? 'block' : 'none';
-
-  // Footer RAM estimate
-  const nonReopened = archiveData.tabs.filter(t => !t.reopened).length;
-  const ramMB = nonReopened * 100;
-  if (ramMB > 0) {
-    const ramStr = ramMB >= 1000 ? `~${(ramMB / 1000).toFixed(1)} GB freed` : `~${ramMB} MB freed`;
-    document.getElementById('footerRam').textContent = `Estimated ${ramStr}`;
-  } else {
-    document.getElementById('footerRam').textContent = '';
-  }
 }
 
 function formatResetTime(timestamp) {
@@ -518,6 +522,11 @@ function renderTabList(containerId, tabs) {
     const reopenedClass = tab.reopened ? ' reopened' : '';
     const reopenLabel = tab.reopened ? 'Opened' : 'Open';
 
+    // Usage details
+    const visits = tab.activations !== undefined ? tab.activations : 0;
+    const timeStr = tab.focusTime !== undefined ? formatDuration(tab.focusTime) : '< 10s';
+    const visitText = `Visited ${visits} time${visits !== 1 ? 's' : ''}`;
+
     item.innerHTML = `
       <div class="tab-favicon">
         ${faviconHtml}
@@ -526,7 +535,9 @@ function renderTabList(containerId, tabs) {
       <div class="tab-info">
         <div class="tab-title">${escapeHtml(tab.title || 'Untitled')}</div>
         <div class="tab-domain">${escapeHtml(domain)}</div>
+        <div class="tab-usage-detail">${escapeHtml(visitText)} · ${escapeHtml(timeStr)}</div>
       </div>
+      <span class="tab-usage-toggle" title="Usage details">&#x24D8;</span>
       <button class="tab-reopen-btn${reopenedClass}" data-url="${escapeAttr(tab.url)}">${reopenLabel}</button>
     `;
 
@@ -656,6 +667,64 @@ function sendMessage(msg) {
   return chrome.runtime.sendMessage(msg);
 }
 
+// ============================================================
+// "MISSING SOMETHING?" HINT
+// ============================================================
+
+async function showMissingHint(archiveResult) {
+  const hintEl = document.getElementById('missingHint');
+  if (!hintEl) return;
+
+  // Only show after auto-close, not manual
+  const data = await chrome.storage.local.get(['lastResetSource', 'hintDismissCount']);
+  if (data.lastResetSource !== 'auto') return;
+
+  const count = data.hintDismissCount || 0;
+  if (count >= 5) return;
+
+  hintEl.style.display = 'flex';
+
+  // "Settings" link opens the settings panel
+  const link = document.getElementById('missingHintLink');
+  if (link) {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const settingsPanel = document.getElementById('settingsPanel');
+      const chevron = document.getElementById('settingsChevron');
+      if (settingsPanel) settingsPanel.style.display = 'block';
+      if (chevron) chevron.classList.add('open');
+      // Scroll to neverclose section
+      const neverclose = document.getElementById('nevercloseToggle');
+      if (neverclose) neverclose.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
+  // Dismiss button
+  const dismissBtn = document.getElementById('missingHintDismiss');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', async () => {
+      hintEl.style.display = 'none';
+      await chrome.storage.local.set({ hintDismissCount: count + 1 });
+    });
+  }
+}
+
+// ============================================================
+// DURATION FORMATTING
+// ============================================================
+
+function formatDuration(ms) {
+  if (ms < 10000) return '< 10s';
+  const totalSec = Math.round(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (min < 60) return sec > 0 ? `${min}m ${sec}s` : `${min}m`;
+  const hr = Math.floor(min / 60);
+  const remMin = min % 60;
+  return remMin > 0 ? `${hr}h ${remMin}m` : `${hr}h`;
+}
+
 // ---- Conditional exports for testing (Chrome ignores this) ----
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -665,6 +734,8 @@ if (typeof module !== 'undefined' && module.exports) {
     updateGroupReopenBtn,
     renderTabList,
     formatTime,
+    formatDuration,
+    showMissingHint,
     escapeHtml,
     escapeAttr,
     extractDomain,

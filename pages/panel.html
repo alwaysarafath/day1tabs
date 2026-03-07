@@ -112,6 +112,12 @@
       <!-- Post-reset content -->
       <div class="archive-content" id="archiveContent" style="display: none;">
 
+        <!-- Missing something hint (shown after auto-close, first 5 times) -->
+        <div class="missing-hint" id="missingHint" style="display: none;">
+          <span class="missing-hint-text">Missing something? Add it to never-close → <a class="missing-hint-link" id="missingHintLink">Settings</a></span>
+          <button class="missing-hint-dismiss" id="missingHintDismiss">&times;</button>
+        </div>
+
         <!-- Single summary line -->
         <div class="archive-summary" id="archiveSummary"></div>
 
@@ -157,6 +163,9 @@
         <div class="reopen-all-wrap" id="reopenAllWrap" style="display: none;">
           <a class="reopen-all-link" id="reopenAllBtn">Reopen everything</a>
         </div>
+
+        <!-- Chrome history reassurance -->
+        <div class="history-hint">Looking for something older? Check Chrome history (Ctrl+H)</div>
       </div>
     </div>
 
@@ -165,11 +174,23 @@
 
     <!-- Footer -->
     <div class="panel-footer">
-      <div class="footer-line1" id="footerRam"></div>
-      <div class="footer-line1">day1tabs is free forever. If it helped, a coffee means a lot</div>
+      <div class="footer-icons" id="footerIcons">
+        <a class="footer-icon-link" href="https://chromewebstore.google.com/detail/day1tabs/iaklgpbfkohkghhmjjdfeiekemnnkklp" target="_blank" title="Review">
+          <svg viewBox="0 0 48 48" width="18" height="18"><circle cx="24" cy="24" r="22" fill="#fff"/><path d="M24 2A22 22 0 0 0 5.3 34.1l9.3-16.1a9.9 9.9 0 0 1 8.5-5h19A22 22 0 0 0 24 2z" fill="#DB4437"/><path d="M42.1 13H23.2a10 10 0 0 1 9.4 14.1L23.2 43.2A22 22 0 0 0 42.1 13z" fill="#FBBC05"/><path d="M23.2 43.2l9.3-16.1a10 10 0 0 1-18.1-.9L5.3 34.1A22 22 0 0 0 23.2 43.2z" fill="#4CAF50"/><circle cx="24" cy="24" r="8" fill="#4285F4"/><circle cx="24" cy="24" r="5" fill="#fff"/></svg>
+          <span>Review</span>
+        </a>
+        <span class="footer-sep">&middot;</span>
+        <button class="footer-icon-link" id="footerShareBtn" title="Share">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <span>Share</span>
+        </button>
+        <span class="footer-sep">&middot;</span>
+        <a class="footer-icon-link" href="https://buymeacoffee.com/alwaysarafath" target="_blank" title="Buy me a coffee">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
+          <span>Coffee</span>
+        </a>
+      </div>
       <div class="footer-line2">
-        <a class="coffee-link" href="https://buymeacoffee.com/alwaysarafath" target="_blank">Buy me a coffee</a>
-        <span>&middot;</span>
         <a href="https://day1tabs.com" target="_blank">day1tabs.com</a>
         <span>&middot;</span>
         <span id="footerVersion"></span>

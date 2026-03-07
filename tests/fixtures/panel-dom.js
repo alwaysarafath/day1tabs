@@ -57,6 +57,10 @@ module.exports = function injectPanelDom() {
     <div class="archive-section" id="archiveSection">
       <div class="archive-empty" id="archiveEmpty"></div>
       <div class="archive-content" id="archiveContent" style="display: none;">
+        <div class="missing-hint" id="missingHint" style="display: none;">
+          <span class="missing-hint-text">Missing something? Add it to never-close → <a class="missing-hint-link" id="missingHintLink">Settings</a></span>
+          <button class="missing-hint-dismiss" id="missingHintDismiss">&times;</button>
+        </div>
         <div class="archive-summary" id="archiveSummary"></div>
 
         <div class="tab-group collapsed" id="groupUsed">
@@ -86,12 +90,20 @@ module.exports = function injectPanelDom() {
         <div class="reopen-all-wrap" id="reopenAllWrap" style="display: none;">
           <a class="reopen-all-link" id="reopenAllBtn">Reopen everything</a>
         </div>
+        <div class="history-hint">Looking for something older? Check Chrome history (Ctrl+H)</div>
       </div>
     </div>
 
     <div class="panel-footer">
-      <div class="footer-line1" id="footerRam"></div>
-      <span id="footerVersion"></span>
+      <div class="footer-icons" id="footerIcons">
+        <a class="footer-icon-link" href="https://chromewebstore.google.com/detail/day1tabs/iaklgpbfkohkghhmjjdfeiekemnnkklp" target="_blank">Review</a>
+        <button class="footer-icon-link" id="footerShareBtn">Share</button>
+        <a class="footer-icon-link" href="https://buymeacoffee.com/alwaysarafath" target="_blank">Coffee</a>
+      </div>
+      <div class="footer-line2">
+        <a href="https://day1tabs.com" target="_blank">day1tabs.com</a>
+        <span id="footerVersion"></span>
+      </div>
     </div>
   </div>
   `;

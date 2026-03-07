@@ -28,6 +28,52 @@ let cachedSacredDomains = []; // cached from storage, synced on init + settings 
 // Debounce timer no longer needed — onUpdated is now pure in-memory work
 
 // ============================================================
+// TAB TRACKER PERSISTENCE (survives service worker kills)
+// ============================================================
+
+async function saveTabTracker() {
+  try {
+    await chrome.storage.local.set({ tabTrackerBackup: tabTracker });
+  } catch (e) {
+    console.error('[day1tabs] Failed to save tabTracker backup:', e);
+  }
+}
+
+async function restoreTabTracker() {
+  try {
+    const data = await chrome.storage.local.get('tabTrackerBackup');
+    const backup = data.tabTrackerBackup;
+    if (!backup || typeof backup !== 'object') return;
+
+    // Cross-reference with currently open tabs — remove stale entries
+    const openTabs = await chrome.tabs.query({});
+    const openTabIds = new Set(openTabs.map(t => t.id));
+
+    for (const tabIdStr of Object.keys(backup)) {
+      const tabId = parseInt(tabIdStr, 10);
+      if (!openTabIds.has(tabId)) {
+        delete backup[tabIdStr]; // stale — tab no longer exists
+        continue;
+      }
+      // Only restore if we don't already have live data for this tab
+      if (!tabTracker[tabId]) {
+        tabTracker[tabId] = backup[tabIdStr];
+      }
+      // If tabTracker already has live data, live data wins (no overwrite)
+    }
+  } catch (e) {
+    console.error('[day1tabs] Failed to restore tabTracker backup:', e);
+  }
+}
+
+// Save tracker when Chrome is about to kill the service worker
+if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onSuspend) {
+  chrome.runtime.onSuspend.addListener(() => {
+    saveTabTracker();
+  });
+}
+
+// ============================================================
 // INITIALIZATION
 // ============================================================
 
@@ -55,11 +101,17 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   duplicateDetectionEnabled = !!cachedData.duplicateAutoClose;
   cachedSacredDomains = cachedData.sacredDomains || [];
 
+  // Restore tracker from storage backup (survives SW kill)
+  await restoreTabTracker();
+
   // Initialize tracking for existing tabs
   await initializeExistingTabs();
 
   // Schedule the reset alarm
   await scheduleResetAlarm();
+
+  // Safety net alarm: persist tracker every 2 minutes
+  chrome.alarms.create('day1tabs-save-tracker', { periodInMinutes: 2 });
 
   // // Update badge
   // await updateBadge();
@@ -69,8 +121,16 @@ chrome.runtime.onStartup.addListener(async () => {
   const cachedData = await chrome.storage.local.get(['duplicateAutoClose', 'sacredDomains']);
   duplicateDetectionEnabled = !!cachedData.duplicateAutoClose;
   cachedSacredDomains = cachedData.sacredDomains || [];
+
+  // Restore tracker from storage backup (survives SW kill)
+  await restoreTabTracker();
+
   await initializeExistingTabs();
   await scheduleResetAlarm();
+
+  // Safety net alarm: persist tracker every 2 minutes
+  chrome.alarms.create('day1tabs-save-tracker', { periodInMinutes: 2 });
+
   // await updateBadge();
 });
 
@@ -226,6 +286,9 @@ function stopFocusTracking() {
   }
   currentActiveTabId = null;
   currentActiveStart = null;
+
+  // Persist tracker to storage (survives SW kill)
+  saveTabTracker();
 }
 
 function ensureTabTracked(tabId, tab) {
@@ -299,7 +362,12 @@ async function scheduleResetAlarm() {
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'day1tabs-reset') {
+    // Restore tracker before classification (worker may have been killed)
+    await restoreTabTracker();
     await executeReset('auto');
+  } else if (alarm.name === 'day1tabs-save-tracker') {
+    // Safety net: periodic persistence
+    saveTabTracker();
   } else if (alarm.name.startsWith('dup-close-')) {
     const tabId = parseInt(alarm.name.replace('dup-close-', ''));
     try {
@@ -485,13 +553,17 @@ async function executeReset(source) {
   // Reset tracker for new day
   tabTracker = {};
 
+  // Clear the backup — fresh start
+  await chrome.storage.local.set({ tabTrackerBackup: null });
+
   // Re-initialize tracking for remaining tabs
   await initializeExistingTabs();
   // await updateBadge();
 
   // Close any existing day1tabs tabs before opening the results panel
   try {
-    const extensionTabs = await chrome.tabs.query({ url: 'chrome-extension://iaklgpbfkohkghhmjjdfeiekemnnkklp/*' });
+    const ownExtId = chrome.runtime.id;
+    const extensionTabs = await chrome.tabs.query({ url: `chrome-extension://${ownExtId}/*` });
     if (extensionTabs.length > 0) {
       console.log(`[day1tabs] Closing ${extensionTabs.length} existing day1tabs tab(s)`);
       await chrome.tabs.remove(extensionTabs.map(t => t.id));
@@ -617,12 +689,26 @@ async function executeUndo() {
 // ============================================================
 
 function isInternalUrl(url) {
-  return !url ||
-    url.startsWith('chrome://') ||
-    url.startsWith('chrome-extension://') ||
-    url.startsWith('about:') ||
-    url.startsWith('edge://') ||
-    url.startsWith('brave://');
+  if (!url) return true;
+
+  // Browser internal pages — always protected
+  if (url.startsWith('chrome://') ||
+      url.startsWith('about:') ||
+      url.startsWith('edge://') ||
+      url.startsWith('brave://')) {
+    return true;
+  }
+
+  // Only protect OUR extension's URLs, not other extensions
+  if (url.startsWith('chrome-extension://')) {
+    const ownId = typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime.id : null;
+    if (ownId && url.startsWith(`chrome-extension://${ownId}/`)) {
+      return true;
+    }
+    return false; // other extension — not internal
+  }
+
+  return false;
 }
 
 
@@ -982,6 +1068,9 @@ if (typeof module !== 'undefined' && module.exports) {
     scheduleResetAlarm,
     checkForDuplicates,
     handleMessage,
+    saveTabTracker,
+    restoreTabTracker,
+    stopFocusTracking,
     // renderBadge,
     isInternalUrl,
     extractDomain,
