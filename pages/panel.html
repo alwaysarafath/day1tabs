@@ -122,7 +122,7 @@
         <div class="archive-summary" id="archiveSummary"></div>
 
         <!-- Used group -->
-        <div class="tab-group collapsed" id="groupUsed">
+        <div class="tab-group" id="groupUsed">
           <div class="group-header" data-group="used">
             <div class="group-title">
               <span class="group-chevron">&#x25B8;</span>
@@ -130,7 +130,7 @@
               <span class="group-name">Used</span>
               <span class="group-count" id="usedCount">0</span>
               <span class="group-info">&#x24D8;
-                <span class="info-tooltip">Tabs are classified as "Used" if you came back to them more than once or spent over a minute on them. Everything else is "Didn't use."</span>
+                <span class="info-tooltip">You visited these tabs more than once or spent over a minute on them.</span>
               </span>
             </div>
             <button class="group-reopen-btn" data-reopen="used">Reopen all</button>
@@ -141,7 +141,7 @@
         </div>
 
         <!-- Didn't use group -->
-        <div class="tab-group collapsed" id="groupDidntUse">
+        <div class="tab-group" id="groupDidntUse">
           <div class="group-header" data-group="didntUse">
             <div class="group-title">
               <span class="group-chevron">&#x25B8;</span>
@@ -149,7 +149,7 @@
               <span class="group-name">Didn't use</span>
               <span class="group-count" id="didntUseCount">0</span>
               <span class="group-info">&#x24D8;
-                <span class="info-tooltip">Tabs are classified as "Used" if you came back to them more than once or spent over a minute on them. Everything else is "Didn't use."</span>
+                <span class="info-tooltip">You visited these tabs once or less, or spent under a minute on them.</span>
               </span>
             </div>
             <button class="group-reopen-btn" data-reopen="didntUse">Reopen all</button>
@@ -165,7 +165,7 @@
         </div>
 
         <!-- Chrome history reassurance -->
-        <div class="history-hint">Looking for something older? Check Chrome history (Ctrl+H)</div>
+        <div class="history-hint">Looking for something older? Check history</div>
       </div>
     </div>
 
@@ -192,6 +192,8 @@
       </div>
       <div class="footer-line2">
         <a href="https://day1tabs.com" target="_blank">day1tabs.com</a>
+        <span>&middot;</span>
+        <a href="https://day1tabs.com/contact" target="_blank">contact</a>
         <span>&middot;</span>
         <span id="footerVersion"></span>
       </div>

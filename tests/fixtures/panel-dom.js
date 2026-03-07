@@ -63,7 +63,7 @@ module.exports = function injectPanelDom() {
         </div>
         <div class="archive-summary" id="archiveSummary"></div>
 
-        <div class="tab-group collapsed" id="groupUsed">
+        <div class="tab-group" id="groupUsed">
           <div class="group-header" data-group="used">
             <div class="group-title">
               <span class="group-count" id="usedCount">0</span>
@@ -75,7 +75,7 @@ module.exports = function injectPanelDom() {
           </div>
         </div>
 
-        <div class="tab-group collapsed" id="groupDidntUse">
+        <div class="tab-group" id="groupDidntUse">
           <div class="group-header" data-group="didntUse">
             <div class="group-title">
               <span class="group-count" id="didntUseCount">0</span>
@@ -90,7 +90,7 @@ module.exports = function injectPanelDom() {
         <div class="reopen-all-wrap" id="reopenAllWrap" style="display: none;">
           <a class="reopen-all-link" id="reopenAllBtn">Reopen everything</a>
         </div>
-        <div class="history-hint">Looking for something older? Check Chrome history (Ctrl+H)</div>
+        <div class="history-hint">Looking for something older? Check history</div>
       </div>
     </div>
 
@@ -102,6 +102,9 @@ module.exports = function injectPanelDom() {
       </div>
       <div class="footer-line2">
         <a href="https://day1tabs.com" target="_blank">day1tabs.com</a>
+        <span>&middot;</span>
+        <a href="https://day1tabs.com/contact" target="_blank">contact</a>
+        <span>&middot;</span>
         <span id="footerVersion"></span>
       </div>
     </div>

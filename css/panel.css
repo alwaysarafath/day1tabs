@@ -55,46 +55,6 @@ body.tab-view {
   text-align: center;
 }
 
-/* Tab-view CTA buttons (before footer) */
-.tab-view-cta {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  margin: 16px 0;
-}
-
-.cta-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 90px;
-  height: 90px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  text-decoration: none;
-  color: var(--text-muted);
-  transition: all 0.15s;
-  font-family: inherit;
-  padding: 0;
-}
-
-.cta-card:hover {
-  border-color: var(--accent);
-  background: var(--accent-glow);
-}
-
-.cta-icon {
-  flex-shrink: 0;
-}
-
-.cta-label {
-  font-size: 11px;
-  font-weight: 600;
-}
 
 .panel {
   padding: 16px 16px 12px;
@@ -676,11 +636,6 @@ body.tab-view {
   cursor: pointer;
   transition: all 0.15s;
   flex-shrink: 0;
-  opacity: 0;
-}
-
-.tab-item:hover .tab-reopen-btn {
-  opacity: 1;
 }
 
 .tab-reopen-btn:hover {
@@ -706,6 +661,7 @@ body.tab-view {
 /* Reopen everything — text link below sections */
 .reopen-all-wrap {
   padding: 6px 4px;
+  text-align: center;
 }
 
 .reopen-all-link {
@@ -763,30 +719,37 @@ body.tab-view {
 }
 
 /* ---- Tab usage details ---- */
-.tab-usage-toggle {
-  color: var(--text-dim);
-  font-size: 12px;
-  cursor: pointer;
-  flex-shrink: 0;
-  padding: 2px 4px;
-  border-radius: 3px;
-  transition: color 0.15s;
-  line-height: 1;
-}
-
-.tab-usage-toggle:hover {
-  color: var(--accent);
-}
-
 .tab-usage-detail {
-  display: none;
   font-size: 10px;
   color: var(--text-dim);
   margin-top: 1px;
 }
 
-.tab-usage-detail.visible {
-  display: block;
+/* ---- Never-close button on hover ---- */
+.tab-neverclose-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tab-neverclose-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tab-neverclose-btn.added {
+  opacity: 1;
+  border-color: var(--used-color);
+  color: var(--used-color);
+  cursor: default;
+  pointer-events: none;
 }
 
 /* ---- Chrome history hint ---- */

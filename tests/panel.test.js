@@ -253,11 +253,11 @@ describe('"Missing something?" hint', () => {
 // Tab usage info display
 // ============================================================
 describe('Tab usage info', () => {
-  test('tab usage info displays correct visit count and time', () => {
+  test('tab usage info is always visible (no toggle icon)', () => {
     const archiveResult = {
       archive: [{
         date: '2025-01-01',
-        timestamp: Date.now() - 30000,
+        timestamp: Date.now() - 300000,
         tabs: [
           { url: 'https://a.com', title: 'A', classification: 'workhorse', favIconUrl: '', activations: 4, focusTime: 154000 }
         ],
@@ -272,6 +272,31 @@ describe('Tab usage info', () => {
     expect(detail).not.toBeNull();
     expect(detail.textContent).toContain('Visited 4 times');
     expect(detail.textContent).toContain('2m 34s');
+
+    // No toggle icon should exist
+    const toggle = usedList.querySelector('.tab-usage-toggle');
+    expect(toggle).toBeNull();
+  });
+
+  test('tab item has never-close button', () => {
+    const archiveResult = {
+      archive: [{
+        date: '2025-01-01',
+        timestamp: Date.now() - 300000,
+        tabs: [
+          { url: 'https://github.com/repo', title: 'Repo', classification: 'workhorse', favIconUrl: '' }
+        ],
+        stats: { total: 1, reopened: 0, used: 1, didntUse: 0 }
+      }]
+    };
+
+    panel.renderArchive(archiveResult, {});
+
+    const usedList = document.getElementById('usedList');
+    const ncBtn = usedList.querySelector('.tab-neverclose-btn');
+    expect(ncBtn).not.toBeNull();
+    expect(ncBtn.dataset.domain).toBe('github.com');
+    expect(ncBtn.textContent).toBe('Never close');
   });
 });
 
@@ -304,18 +329,22 @@ describe('formatDuration', () => {
 // Footer content
 // ============================================================
 describe('Footer redesign', () => {
-  test('footer contains Review, Share, Buy me a coffee links', () => {
+  test('footer contains Review, Share, Coffee icons and contact text link', () => {
     const footer = document.querySelector('.panel-footer');
     expect(footer.innerHTML).toContain('Review');
     expect(footer.innerHTML).toContain('Share');
     expect(footer.innerHTML).toContain('Coffee');
+    // Contact is in footer-line2 as text link
+    const line2 = footer.querySelector('.footer-line2');
+    expect(line2.innerHTML).toContain('day1tabs.com/contact');
+    expect(line2.innerHTML).toContain('contact');
   });
 
   test('footer does NOT contain RAM estimate text', () => {
     const archiveResult = {
       archive: [{
         date: '2025-01-01',
-        timestamp: Date.now() - 30000,
+        timestamp: Date.now() - 300000,
         tabs: [
           { url: 'https://a.com', title: 'A', classification: 'ghost', favIconUrl: '' }
         ],
@@ -328,5 +357,35 @@ describe('Footer redesign', () => {
     const footer = document.querySelector('.panel-footer');
     expect(footer.textContent).not.toContain('MB freed');
     expect(footer.textContent).not.toContain('GB freed');
+  });
+});
+
+// ============================================================
+// formatResetTime — no "just now"
+// ============================================================
+describe('formatResetTime', () => {
+  test('never returns "just now" or "today" — always shows full date', () => {
+    const result = panel.formatResetTime(Date.now() - 5000);
+    expect(result).not.toBe('just now');
+    expect(result).not.toContain('today');
+    // Should contain day name (e.g. "Fri") and month
+    expect(result).toMatch(/\w{3}/); // at least a 3-letter abbreviation
+  });
+
+  test('shows actual date for recent timestamps', () => {
+    const result = panel.formatResetTime(Date.now() - 300000);
+    expect(result).not.toContain('today');
+    expect(result).not.toContain('just now');
+  });
+});
+
+// ============================================================
+// History hint — no keyboard shortcut
+// ============================================================
+describe('History hint', () => {
+  test('history hint does not contain Ctrl+H shortcut', () => {
+    const hint = document.querySelector('.history-hint');
+    expect(hint.textContent).not.toContain('Ctrl+H');
+    expect(hint.textContent).toContain('Check history');
   });
 });

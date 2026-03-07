@@ -32,10 +32,6 @@ async function init() {
 
   // Tab-view customizations (scheduled close only)
   if (isTabView) {
-    // Expand tab groups by default
-    document.getElementById('groupUsed').classList.remove('collapsed');
-    document.getElementById('groupDidntUse').classList.remove('collapsed');
-
     // Move archive summary to top (after header, before action block)
     const summary = document.getElementById('archiveSummary');
     const actionBlock = document.querySelector('.action-block');
@@ -50,42 +46,6 @@ async function init() {
     if (orText) orText.style.display = 'none';
     if (closeBtn) closeBtn.style.display = 'none';
 
-    // Inject Review + Share buttons before footer
-    const didntUseCount = currentArchive?.archive?.[0]?.tabs?.filter(t => t.classification !== 'workhorse').length || 0;
-
-    const ctaWrap = document.createElement('div');
-    ctaWrap.className = 'tab-view-cta';
-    ctaWrap.innerHTML = `
-      <a class="cta-card" href="https://chromewebstore.google.com/detail/day1tabs/iaklgpbfkohkghhmjjdfeiekemnnkklp" target="_blank">
-        <svg class="cta-icon" viewBox="0 0 48 48" width="28" height="28"><circle cx="24" cy="24" r="22" fill="#fff"/><path d="M24 2A22 22 0 0 0 5.3 34.1l9.3-16.1a9.9 9.9 0 0 1 8.5-5h19A22 22 0 0 0 24 2z" fill="#DB4437"/><path d="M42.1 13H23.2a10 10 0 0 1 9.4 14.1L23.2 43.2A22 22 0 0 0 42.1 13z" fill="#FBBC05"/><path d="M23.2 43.2l9.3-16.1a10 10 0 0 1-18.1-.9L5.3 34.1A22 22 0 0 0 23.2 43.2z" fill="#4CAF50"/><circle cx="24" cy="24" r="8" fill="#4285F4"/><circle cx="24" cy="24" r="5" fill="#fff"/></svg>
-        <span class="cta-label">Review</span>
-      </a>
-      <button class="cta-card" id="shareBtn">
-        <svg class="cta-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-        <span class="cta-label">Share</span>
-      </button>
-      <a class="cta-card" href="https://buymeacoffee.com/alwaysarafath" target="_blank">
-        <svg class="cta-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
-        <span class="cta-label">Buy me a coffee</span>
-      </a>
-    `;
-
-    const footer = document.querySelector('.panel-footer');
-    footer.parentNode.insertBefore(ctaWrap, footer);
-
-    document.getElementById('shareBtn').addEventListener('click', async () => {
-      const shareText = `Hi, I am using day1Tabs to clear my clutter daily and it closed ${didntUseCount} tab${didntUseCount !== 1 ? 's' : ''} yesterday that I didn't use automatically. Give it a try!\n\nChrome Web Store: https://chromewebstore.google.com/detail/day1tabs/iaklgpbfkohkghhmjjdfeiekemnnkklp\nWebsite: https://day1tabs.com/`;
-      if (navigator.share) {
-        try {
-          await navigator.share({ text: shareText });
-        } catch (e) {
-          // User cancelled or share failed — ignore
-        }
-      } else {
-        await navigator.clipboard.writeText(shareText);
-        showToast('Copied to clipboard');
-      }
-    });
   }
 
   setupEventListeners(currentStatus);
@@ -361,15 +321,21 @@ function setupEventListeners(status) {
     });
   });
 
-  // Delegated click handler for usage info toggle + individual tab reopen buttons
+  // Delegated click handler for never-close + individual tab reopen buttons
   document.querySelectorAll('.tab-list').forEach(list => {
     list.addEventListener('click', async (e) => {
-      // Toggle usage detail
-      const infoBtn = e.target.closest('.tab-usage-toggle');
-      if (infoBtn) {
-        const item = infoBtn.closest('.tab-item');
-        const detail = item?.querySelector('.tab-usage-detail');
-        if (detail) detail.classList.toggle('visible');
+      // Never-close button
+      const ncBtn = e.target.closest('.tab-neverclose-btn');
+      if (ncBtn) {
+        e.stopPropagation();
+        const domain = ncBtn.dataset.domain;
+        if (domain) {
+          const result = await sendMessage({ action: 'addSacredDomain', domain });
+          renderNeverCloseDomains(result.sacredDomains);
+          ncBtn.textContent = 'Added';
+          ncBtn.classList.add('added');
+          showToast(`${domain} added to never-close`);
+        }
         return;
       }
 
@@ -464,18 +430,7 @@ function formatResetTime(timestamp) {
   const now = Date.now();
   const diff = now - timestamp;
 
-  // Under 2 minutes = "just now"
-  if (diff < 120000) return 'just now';
-
   const resetDate = new Date(timestamp);
-  const today = new Date();
-  const isToday = resetDate.toDateString() === today.toDateString();
-
-  const timeStr = resetDate.toLocaleString(undefined, {
-    hour: 'numeric', minute: '2-digit', hour12: true
-  });
-
-  if (isToday) return `today, ${timeStr}`;
 
   return resetDate.toLocaleString(undefined, {
     weekday: 'short', month: 'short', day: 'numeric',
@@ -535,9 +490,9 @@ function renderTabList(containerId, tabs) {
       <div class="tab-info">
         <div class="tab-title">${escapeHtml(tab.title || 'Untitled')}</div>
         <div class="tab-domain">${escapeHtml(domain)}</div>
-        <div class="tab-usage-detail">${escapeHtml(visitText)} · ${escapeHtml(timeStr)}</div>
+        <div class="tab-usage-detail">${escapeHtml(visitText)} &middot; ${escapeHtml(timeStr)}</div>
       </div>
-      <span class="tab-usage-toggle" title="Usage details">&#x24D8;</span>
+      <button class="tab-neverclose-btn" data-domain="${escapeAttr(domain)}" title="Never close ${escapeAttr(domain)}">Never close</button>
       <button class="tab-reopen-btn${reopenedClass}" data-url="${escapeAttr(tab.url)}">${reopenLabel}</button>
     `;
 
@@ -739,6 +694,7 @@ if (typeof module !== 'undefined' && module.exports) {
     escapeHtml,
     escapeAttr,
     extractDomain,
-    updateArchiveChrome
+    updateArchiveChrome,
+    formatResetTime
   };
 }

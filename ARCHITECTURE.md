@@ -235,7 +235,11 @@ trackingActive:       boolean         // pause/resume flag
 2. `chrome.runtime.onSuspend` listener (Chrome about to kill the worker)
 3. Every 2 minutes via the `day1tabs-save-tracker` alarm (safety net)
 
-On worker wake (onStartup, onInstalled, or before the midnight alarm fires), `restoreTabTracker()` reads the backup and merges it with any live data — live data always wins. Stale entries (tabs that no longer exist) are cleaned up by cross-referencing with `chrome.tabs.query()`. The backup is cleared to `null` after `executeReset()` completes.
+**Eager Restore on Every Wake (v3.1 critical fix):** The service worker can restart for ANY event — not just `onInstalled`/`onStartup`, but also `onActivated`, `onUpdated`, alarms, and messages. A module-level promise `_restoreReady` eagerly calls `restoreTabTracker()` on every wake. All event handlers that modify `tabTracker` (`onActivated`, `onFocusChanged`) and `saveTabTracker()` await this promise before proceeding. This prevents:
+- Empty `tabTracker` overwriting a good backup on first save after wake
+- Tracking data loss when the SW restarts for tab events
+
+On restore, `restoreTabTracker()` reads the backup and merges it with any live data — live data always wins. Stale entries (tabs that no longer exist) are cleaned up by cross-referencing with `chrome.tabs.query()`. The backup is cleared to `null` after `executeReset()` completes.
 
 ---
 
@@ -261,6 +265,7 @@ chrome.tabs.onCreated
   → checkForDuplicates() (after 1s delay — URL may not be set yet)
 
 chrome.tabs.onActivated
+  → await _restoreReady (ensure backup loaded before modifying tracker)
   → stopFocusTracking() [previous tab]
   → ensureTabTracked() + activations++
   → startFocusTracking() [new tab]
@@ -278,6 +283,7 @@ chrome.tabs.onRemoved
   → Note: tracker entry is NOT deleted (needed for classification)
 
 chrome.windows.onFocusChanged
+  → await _restoreReady
   → WINDOW_ID_NONE: stopFocusTracking()
   → Other window: stopFocusTracking() + startFocusTracking(new active tab)
 
@@ -349,21 +355,27 @@ chrome.action.onClicked
 ```
 ┌─────────────────────────────────────────────────────┐
 │ [Missing something? Add to never-close → Settings]  │  ← hint (auto-close, first 5 times)
-│ "X tabs closed · just now"                          │  ← archive summary
+│ "X tabs closed · Fri, Mar 7, 2:45 PM"              │  ← archive summary (always full date)
 │                                                      │
-│ ▸ Used (N)                    [Reopen all]          │
-│   ├─ tab item  [ℹ] [Open]                          │
-│   └─ tab item  [ℹ] [Open]                          │
+│ ▾ Used (N) ℹ                  [Reopen all]          │  ← expanded by default
+│   ├─ tab item                                       │
+│   │   Visited 4 times · 2m 34s                      │  ← usage always visible
+│   │               [Never close] [Open]              │  ← buttons always visible
+│   └─ tab item                                       │
+│       Visited 1 time · 45s                          │
+│                       [Never close] [Open]          │
 │                                                      │
-│ ▸ Didn't use (N)              [Reopen all]          │
-│   ├─ tab item  [ℹ] [Open]                          │
-│   └─ tab item  [ℹ] [Open]                          │
+│ ▾ Didn't use (N) ℹ            [Reopen all]          │  ← expanded by default
+│   ├─ tab item                                       │
+│   │   Visited 0 times · < 10s                       │
+│   │               [Never close] [Open]              │
+│   └─ tab item                                       │
 │                                                      │
-│ [Reopen everything]                                  │
-│ Looking for something older? Check Chrome history    │  ← reassurance
+│              [Reopen everything]                     │  ← centered
+│ Looking for something older? Check history           │  ← reassurance
 │                                                      │
-│ [Review] · [Share] · [Coffee]                       │  ← icon footer
-│ day1tabs.com · v3.1.0                               │
+│ [Review] · [Share] · [Coffee]                       │  ← icon footer (3 icons only)
+│ day1tabs.com · contact · v3.1.0                     │  ← text links
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -373,11 +385,27 @@ chrome.action.onClicked
 - "Settings" link opens settings panel and scrolls to never-close section
 
 ### Tab Usage Details
-- Each tab has an info icon (ℹ) that toggles a detail row
+- Usage data (visit count + focus time) is always visible below each tab's domain
 - Shows: "Visited N times · Xm Ys" (or "< 10s")
 - Data comes from `activations` and `focusTime` in the archive entry
+- No toggle icon — info is always expanded
+
+### Never-Close Button
+- Each tab item has a "Never close" button (always visible, not hover-only)
+- Clicking it sends `addSacredDomain` message and updates the button to "Added"
+- Shows toast: "{domain} added to never-close"
+
+### Tab Groups
+- Used and Didn't use groups are expanded by default (no `collapsed` class)
+- Users can click the header to collapse/expand
+- Tooltips (second person): "You visited these tabs more than once or spent over a minute on them." / "You visited these tabs once or less, or spent under a minute on them."
+
+### Summary Line
+- Always shows full date/time: "X tabs closed · Fri, Mar 7, 2:45 PM"
+- Never shows "just now" or "today"
 
 ### Footer
-- Icon-based row: Review (CWS) | Share (Web Share API / clipboard) | Coffee (BMC)
-- Site link + version number on second line
+- Icon row: Review (CWS) · Share (Web Share API / clipboard) · Coffee (BMC) — 3 icons only
+- Text row: day1tabs.com · contact · version
 - No RAM estimate (removed in v3.1)
+- No CTA cards in tab-view mode (footer icons cover this)

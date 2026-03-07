@@ -33,6 +33,9 @@ let cachedSacredDomains = []; // cached from storage, synced on init + settings 
 
 async function saveTabTracker() {
   try {
+    // Wait for restore to finish before saving — prevents overwriting
+    // good backup with empty {} on a fresh SW wake
+    await _restoreReady;
     await chrome.storage.local.set({ tabTrackerBackup: tabTracker });
   } catch (e) {
     console.error('[day1tabs] Failed to save tabTracker backup:', e);
@@ -72,6 +75,18 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onSuspend)
     saveTabTracker();
   });
 }
+
+// Eagerly restore on EVERY service worker wake (not just onInstalled/onStartup).
+// The SW can restart for any event (onActivated, onUpdated, alarm, message).
+// Without this, tabTracker is empty {} on wake and all tracking data is lost.
+const _restoreReady = (typeof chrome !== 'undefined' && chrome.storage)
+  ? (async () => {
+      await restoreTabTracker();
+      const cachedData = await chrome.storage.local.get(['duplicateAutoClose', 'sacredDomains']);
+      duplicateDetectionEnabled = !!cachedData.duplicateAutoClose;
+      cachedSacredDomains = cachedData.sacredDomains || [];
+    })()
+  : Promise.resolve();
 
 // ============================================================
 // INITIALIZATION
@@ -167,6 +182,9 @@ async function initializeExistingTabs() {
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   if (!trackingActive) return;
 
+  // Ensure backup is restored before modifying tracker
+  await _restoreReady;
+
   // Stop tracking previous tab's focus time
   stopFocusTracking();
 
@@ -249,8 +267,9 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 // When window focus changes
-chrome.windows.onFocusChanged.addListener((windowId) => {
+chrome.windows.onFocusChanged.addListener(async (windowId) => {
   if (!trackingActive) return;
+  await _restoreReady;
 
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
     // Browser lost focus entirely
