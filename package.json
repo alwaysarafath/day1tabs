@@ -2,7 +2,7 @@
   "name": "day1tabs",
   "private": true,
   "scripts": {
-    "test": "jest tests/background.test.js tests/panel.test.js",
+    "test": "jest tests/background.test.js tests/panel.test.js tests/security.test.js",
     "test:coverage": "jest --coverage",
     "test:perf": "jest tests/performance.test.js",
     "prerelease": "npm test && npm run test:perf"

@@ -471,7 +471,7 @@ function renderTabList(containerId, tabs) {
     const firstLetter = (tab.title || domain || '?')[0];
 
     const faviconHtml = tab.favIconUrl
-      ? `<img src="${escapeAttr(tab.favIconUrl)}" alt="" loading="lazy" onerror="this.style.display='none';this.parentElement.querySelector('.placeholder').style.display='flex'">`
+      ? `<img src="${escapeAttr(tab.favIconUrl)}" alt="" loading="lazy">`
       : '';
 
     const reopenedClass = tab.reopened ? ' reopened' : '';
@@ -500,6 +500,15 @@ function renderTabList(containerId, tabs) {
   });
 
   container.appendChild(frag);
+
+  // Attach favicon error handlers via JS instead of inline onerror (CSP-safe)
+  container.querySelectorAll('.tab-favicon img').forEach(img => {
+    img.addEventListener('error', () => {
+      img.style.display = 'none';
+      const placeholder = img.parentElement.querySelector('.placeholder');
+      if (placeholder) placeholder.style.display = 'flex';
+    });
+  });
 }
 
 // ============================================================

@@ -116,8 +116,8 @@ function renderSacredList() {
     const item = document.createElement('div');
     item.className = 'sacred-item';
     item.innerHTML = `
-      <span>${domain}</span>
-      <span class="remove" data-domain="${domain}">×</span>
+      <span>${escapeHtml(domain)}</span>
+      <span class="remove" data-domain="${escapeAttr(domain)}">×</span>
     `;
     container.appendChild(item);
   });
