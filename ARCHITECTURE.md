@@ -28,7 +28,7 @@
 │  │                                                         │   │
 │  │              chrome.storage.local                       │   │
 │  │  ┌─────────────────────────────────────────────────┐    │   │
-│  │  │ archive, undoData, sacredDomains, resetHour,    │    │   │
+│  │  │ archive, undoData, sacredDomains (never-close domains), resetHour,    │    │   │
 │  │  │ resetMinute, resetEnabled, tabTrackerBackup,    │    │   │
 │  │  │ duplicateAutoClose, duplicateAutoCloseMinutes,  │    │   │
 │  │  │ onboardingComplete                              │    │   │
@@ -104,9 +104,9 @@ executeReset()
     ├─ 1. Flush focus tracking
     ├─ 2. Query all tabs
     ├─ 3. For each tab, decide: KEEP or CLOSE
-    │      Keep if: pinned, sacred domain, active tab, internal URL
+    │      Keep if: pinned, never-close domain, active tab, internal URL
     │      Close: everything else
-    ├─ 4. Classify each closing tab (workhorse / glanced / ghost)
+    ├─ 4. Classify each closing tab (Used / Didn't use)
     ├─ 5. Build archive entry + undoData
     ├─ 6. Save to chrome.storage.local
     ├─ 7. Close tabs (batch, fallback to individual)
@@ -117,18 +117,19 @@ executeReset()
 
 ### Tab Classification
 
+Tabs are split into two categories for the user:
+
 ```
 classifyTab(tabData):
-  activations >= 2  OR  focusTime >= 60s  →  "workhorse"  (Used)
-  activations == 0  OR  focusTime < 5s    →  "ghost"      (Didn't use)
-  everything else                         →  "glanced"    (Didn't use)
+  activations >= 2  OR  focusTime >= 60s  →  "Used"
+  everything else                         →  "Didn't use"
 ```
 
 ### Tabs That Are Never Closed
 
 - Pinned tabs
 - Active/focused tab in each window
-- Tabs matching a `sacredDomains` entry (subdomain-aware)
+- Tabs matching a never-close domain entry (subdomain-aware)
 - Internal URLs: `chrome://`, `about:`, `edge://`, `brave://`
   - Exception: `chrome://newtab` IS closed
 - day1tabs extension URLs — protected
@@ -145,7 +146,7 @@ All data lives in `chrome.storage.local`. No data is transmitted externally.
 | `resetHour` | `number` | `0` | Hour for daily reset (0–23) |
 | `resetMinute` | `number` | `0` | Minute for daily reset (0–59) |
 | `resetEnabled` | `boolean` | `true` | Whether auto-close is active |
-| `sacredDomains` | `string[]` | `[]` | Domains that survive every close |
+| `sacredDomains` | `string[]` | `[]` | Never-close domains — survive every reset |
 | `duplicateAutoClose` | `boolean` | `false` | Auto-close duplicate tabs |
 | `duplicateAutoCloseMinutes` | `number` | `10` | Delay before closing duplicates |
 | `onboardingComplete` | `boolean` | `false` | First-run wizard completed |
@@ -231,6 +232,6 @@ These dead files were removed during cleanup (unreachable in manifest, no links 
 | `reopenTabs` | `{ success, count }` |
 | `reclassifyTab` | `{ success }` |
 | `updateSettings` | `{ success }` |
-| `addSacredDomain` | `{ success, sacredDomains[] }` |
-| `removeSacredDomain` | `{ success, sacredDomains[] }` |
+| `addSacredDomain` | `{ success, sacredDomains[] }` | (adds a never-close domain)
+| `removeSacredDomain` | `{ success, sacredDomains[] }` | (removes a never-close domain)
 | `getCurrentTabs` | `{ tabs: [{ tabId, url, title, activations, focusTime, classification }] }` |

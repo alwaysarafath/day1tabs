@@ -8,12 +8,12 @@ Start every day with a clean browser. Auto-reset tabs at midnight, track what yo
 
 day1tabs closes your unused tabs so you don't have to.
 
-Set a daily reset time — midnight by default — and every tab that isn't sacred gets closed. Tabs you actually used are archived so nothing is lost.
+Set a daily reset time — midnight by default — and every tab that isn't on your never-close list gets closed. Tabs you actually used are archived so nothing is lost.
 
 ### Features
 
 - **Daily auto-reset** — Closes non-essential tabs on a schedule you set. Wake up to a clean browser.
-- **Tab classification** — Tracks which tabs you actively use (workhorses), briefly glance at, or never touch (ghosts).
+- **Tab classification** — Tracks which tabs you actually used and which you didn't.
 - **Sacred domains** — Mark domains like gmail.com or docs.google.com to keep them open through resets.
 - **Duplicate detection** — Identifies duplicate tabs across all windows during resets.
 - **Auto-close duplicates** — Optionally closes duplicate tabs after a configurable delay (5, 10, or 30 minutes).
@@ -28,7 +28,7 @@ Set a daily reset time — midnight by default — and every tab that isn't sacr
 1. Install and pick your reset time.
 2. Add any domains you never want closed.
 3. Browse normally. day1tabs tracks tab usage in the background.
-4. At reset time, non-sacred tabs are closed and archived.
+4. At reset time, tabs not on your never-close list are closed and archived.
 5. Review the archive, reopen what you need, or undo the whole thing.
 
 ### Permissions

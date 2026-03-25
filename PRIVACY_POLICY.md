@@ -12,7 +12,7 @@ Your privacy matters. This policy explains exactly what day1tabs does and does n
 
 day1tabs accesses the following information **locally on your device only**:
 
-- **Tab URLs and titles** — Used to track which tabs are open, classify them by usage (workhorse, glanced, ghost), and archive them when a reset occurs.
+- **Tab URLs and titles** — Used to track which tabs are open, classify them by usage (Used / Didn't use), and archive them when a reset occurs.
 - **Tab activity timestamps** — Used to determine how recently and how often you interacted with each tab.
 - **User settings** — Your preferences such as reset time, never-auto-close domains, and whether auto-reset is enabled.
 - **Archive history** — A local record of tabs that were closed during each reset, so you can review and reopen them.

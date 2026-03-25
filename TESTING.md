@@ -27,7 +27,7 @@ npm run test:coverage   # with coverage report
 
 | # | Test | What it verifies |
 |---|------|-----------------|
-| 1 | classifyTab — V3 Used / Didn't use | Two-category split: workhorse = Used, ghost+glanced = Didn't use |
+| 1 | classifyTab — Used / Didn't use | Two-category classification based on activations and focus time |
 | 2 | executeReset — never-close domains survive | Sacred domain tabs are not removed |
 | 3 | executeReset — pinned tabs survive | Pinned tabs are never closed |
 | 4 | executeReset — active tab survives | Focused tab per window is preserved |

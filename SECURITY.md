@@ -28,9 +28,9 @@ All message handler inputs are validated before processing:
 |-------|------------|
 | `resetHour` | Must be integer 0-23 |
 | `resetMinute` | Must be integer 0-59 |
-| `sacredDomain` | Stripped of protocol/path, validated against domain regex, max 253 chars |
+| `sacredDomain` (never-close domain) | Stripped of protocol/path, validated against domain regex, max 253 chars |
 | `tabIndex` (reclassifyTab) | Must be non-negative integer |
-| `newClassification` (reclassifyTab) | Must be one of: `workhorse`, `glanced`, `ghost` |
+| `newClassification` (reclassifyTab) | Must be one of: `workhorse`, `glanced`, `ghost` (internally mapped to Used / Didn't use in the UI) |
 | `urls` (reopenTabs) | Each must be a string matching `^https?://` — blocks `javascript:`, `data:`, `blob:`, `file:`, `chrome:` |
 | Message sender | `sender.id` must match `chrome.runtime.id` |
 
